@@ -223,7 +223,7 @@ public class DependencyPipe implements Serializable {
 
 		System.out.printf("Num of CONLL fine POS tags: %d %d%n", posTagSet.size(), dictionaries.size(POS));
 		System.out.printf("Num of labels: %d%n", types.length);
-		System.out.printf("Num of Syntactic Features: %d%n", ff.numArcFeats);
+		System.out.printf("Num of Syntactic Features: %d%n", ff.featureHashSet.size());
 	}
 
     public void closeAlphabets() 

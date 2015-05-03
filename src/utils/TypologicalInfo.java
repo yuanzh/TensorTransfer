@@ -38,7 +38,8 @@ public class TypologicalInfo {
 		langNum = Integer.parseInt(data[0]);
 		featureNum = Integer.parseInt(data[1]);
 		classNum = Integer.parseInt(data[2]);
-		familyNum = Integer.parseInt(data[3]);
+		//familyNum = Integer.parseInt(data[3]);
+		familyNum = langNum;		// change family to language
 		
 		Utils.Assert(featureNum == TypoFeatureType.Count.ordinal());
 		
@@ -48,6 +49,7 @@ public class TypologicalInfo {
 		for (int i = 0; i < featureNum; ++i)
 			numberOfValues[i] = Integer.parseInt(data[i]);
 		
+		//bit = Utils.log2(familyNum + classNum + langNum + 1);
 		bit = Utils.log2(familyNum + classNum + 1);
 		
 		Utils.Assert(langNum == options.langString.length);
@@ -62,7 +64,8 @@ public class TypologicalInfo {
 				lang2Feature[i][j] = Integer.parseInt(data[j + 1]);
 			}
 			lang2Class[i] = Integer.parseInt(data[1 + featureNum]);
-			lang2Family[i] = Integer.parseInt(data[1 + featureNum + 1]);
+			//lang2Family[i] = Integer.parseInt(data[1 + featureNum + 1]);
+			lang2Family[i] = i;
 		}
 		br.close();
 	}
