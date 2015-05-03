@@ -74,14 +74,21 @@ public class Options implements Cloneable, Serializable {
 	public double MIRAC = 1.0;
 	
 	// for adagrad
-	public double AdaAlpha = 0.01;
+	public double AdaAlpha = 0.001;
 	public double AdaEps = 1e-5;
+	
+	// batch
+	public int batchSize = 100;		// batch size
+	public double lambda = 1.0;	// regularization
+	public double tensorLambda = 0.1;
+	public boolean useBatch = false;
 	
 	// tensor
 	public double gamma = 1.0;
 	public int R = 100;
 	public int extraR = 10;
 	public boolean useNN = false;
+	public boolean initTensorWithPretrain = true;
 	
 	// feature set
 	public boolean useCS = true;		// use consecutive siblings
@@ -89,6 +96,8 @@ public class Options implements Cloneable, Serializable {
 	public boolean useHB = true;		// use head bigram
 	public boolean useGS = true;		// use grand sibling
 	public boolean useTS = true;		// use tri-sibling
+	
+	public boolean direct = false;
 	
 	// CoNLL-UNI languages
 //	public enum PossibleLang {
@@ -188,7 +197,10 @@ public class Options implements Cloneable, Serializable {
     		else if (arg.startsWith("lexical")) {
     			lexical = Boolean.parseBoolean(arg.split(":")[1]);
     		}
-            else if (arg.startsWith("word-vector:")) {
+    		else if (arg.startsWith("pretrain")) {
+    			initTensorWithPretrain = Boolean.parseBoolean(arg.split(":")[1]);
+    		}
+    		else if (arg.startsWith("word-vector:")) {
             	wordVectorFile = arg.split(":")[1];
             }
             else if (arg.startsWith("proj")) {
@@ -217,6 +229,12 @@ public class Options implements Cloneable, Serializable {
             }
             else if (arg.startsWith("nn:")) {
                 useNN = Boolean.parseBoolean(arg.split(":")[1]);
+            }
+            else if (arg.startsWith("batch:")) {
+                useBatch = Boolean.parseBoolean(arg.split(":")[1]);
+            }
+            else if (arg.startsWith("direct:")) {
+                direct = Boolean.parseBoolean(arg.split(":")[1]);
             }
             else if (arg.startsWith("pruning:")) {
                 pruning = Boolean.parseBoolean(arg.split(":")[1]);
@@ -299,6 +317,8 @@ public class Options implements Cloneable, Serializable {
         System.out.println("R: " + R);
         System.out.println("extra-R: " + extraR);
         System.out.println("use NN: " + useNN);
+        System.out.println("use batch: " + useBatch);
+        System.out.println("direct transfer: " + direct);
         System.out.println("word-vector:" + wordVectorFile);
         System.out.println("projective: " + projective);
         System.out.println("pruning: " + pruning);

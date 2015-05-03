@@ -25,6 +25,7 @@ public class ParameterNode implements Serializable {
 	
 	public int rank;
 	public double gamma;
+	public double lambda;
 	
 	public int posNum;
 	public int labelNum;
@@ -35,6 +36,7 @@ public class ParameterNode implements Serializable {
 	public double[][] param;		// [rank][feature Num]
 	public transient boolean[] isActive;	// [feature num], whether the feature is used
 	public transient FeatureVector[] dFV;	// [rank];
+	public transient double[] delta;
 	
 	// adaGrad
 	private transient double[][] sg;	// [rank][feature num]
@@ -42,7 +44,7 @@ public class ParameterNode implements Serializable {
 	private transient double adaEps;
 	
 	// mira
-	private transient double[][] total;
+	transient double[][] total;
 	private transient double[][] back;
 	private transient double C;
 
@@ -55,6 +57,7 @@ public class ParameterNode implements Serializable {
 		this.pipe = pipe;
 		this.rank = rank;
 		gamma = options.gamma;
+		lambda = options.tensorLambda;
 
 		posNum = pipe.dictionaries.size(DictionaryTypes.POS);
 		labelNum = pipe.dictionaries.size(DictionaryTypes.DEPLABEL);
@@ -92,6 +95,7 @@ public class ParameterNode implements Serializable {
 			param = new double[rank][featureSize];
 			isActive = new boolean[featureSize];
 			dFV = new FeatureVector[rank];
+			delta = new double[featureSize];
 			for (int i = 0; i < rank; ++i)
 				dFV[i] = new FeatureVector(featureSize);
 			
@@ -208,8 +212,9 @@ public class ParameterNode implements Serializable {
 		// head context
 		ParameterNode headContext = delexical.node[0];
 		headContext.setNodeNum(0);
-		int[] dim1 = {1, posNum * pipe.typo.classNum, posNum * pipe.typo.classNum,
-				posNum * pipe.typo.familyNum, posNum * pipe.typo.familyNum}; 
+		int[] dim1 = {1, pipe.typo.classNum, pipe.typo.familyNum, 
+				posNum * pipe.typo.classNum, posNum * pipe.typo.familyNum,
+				posNum * pipe.typo.classNum, posNum * pipe.typo.familyNum}; 
 		headContext.setFeatureSizeAndBias(dim1);
 		
 		// modifier context
@@ -220,8 +225,13 @@ public class ParameterNode implements Serializable {
 		if (options.learnLabel) {
 			// arc & label
 			ParameterNode arc = delexical.node[2];
-			int[] dim2 = {pipe.typo.getNumberOfValues(TypoFeatureType.SV) * (2 + 2 * d), 2 * (1 + 2 * d),
-					pipe.typo.getNumberOfValues(TypoFeatureType.VO) * (2 + 2 * d), 2 * (1 + 2 * d)};
+			//int[] dim2 = {pipe.typo.getNumberOfValues(TypoFeatureType.SV) * (2 + 2 * d), 2 * (1 + 2 * d),
+			//		pipe.typo.getNumberOfValues(TypoFeatureType.VO) * (2 + 2 * d), 2 * (1 + 2 * d)};
+			int offset = 2 * d * 2;
+			int[] dim2 = {pipe.typo.getNumberOfValues(TypoFeatureType.SV) * offset,	// NOUN,
+					pipe.typo.getNumberOfValues(TypoFeatureType.SV) * offset, // PRON
+					pipe.typo.getNumberOfValues(TypoFeatureType.VO) * offset, // NOUN
+					pipe.typo.getNumberOfValues(TypoFeatureType.VO) * offset};
 			arc.setFeatureSizeAndBias(dim2);
 			//arc.setEmptyFeature();
 			
@@ -236,9 +246,14 @@ public class ParameterNode implements Serializable {
 			
 			// typo
 			ParameterNode typo = arc.node[1];
-			int[] dim4 = {pipe.typo.getNumberOfValues(TypoFeatureType.Prep) * (2 + 2 * d), 2 * (1 + 2 * d),
-					pipe.typo.getNumberOfValues(TypoFeatureType.Gen) * (2 + 2 * d), 2 * (1 + 2 * d),
-					pipe.typo.getNumberOfValues(TypoFeatureType.Adj) * (2 + 2 * d), 2 * (1 + 2 * d)};
+			//int[] dim4 = {pipe.typo.getNumberOfValues(TypoFeatureType.Prep) * (2 + 2 * d), 2 * (1 + 2 * d),
+			//		pipe.typo.getNumberOfValues(TypoFeatureType.Gen) * (2 + 2 * d), 2 * (1 + 2 * d),
+			//		pipe.typo.getNumberOfValues(TypoFeatureType.Adj) * (2 + 2 * d), 2 * (1 + 2 * d)};
+			offset = 2 * d;
+			int[] dim4 = {pipe.typo.getNumberOfValues(TypoFeatureType.Prep) * offset, // NOUN
+					pipe.typo.getNumberOfValues(TypoFeatureType.Prep) * offset, // PRON,
+					pipe.typo.getNumberOfValues(TypoFeatureType.Gen) * offset,
+					pipe.typo.getNumberOfValues(TypoFeatureType.Adj) * offset};
 			typo.setFeatureSizeAndBias(dim4);
 			//typo.setEmptyFeature();
 			
@@ -259,7 +274,8 @@ public class ParameterNode implements Serializable {
 			
 			// direction, distance, typo
 			ParameterNode dd = typo.node[2];
-			int[] dim6 = {1, d * 2 * pipe.typo.classNum, d * 2 * pipe.typo.familyNum};
+			int[] dim6 = {1, pipe.typo.classNum, pipe.typo.familyNum,
+					d, d * 2 * pipe.typo.classNum, d * 2 * pipe.typo.familyNum};
 			dd.setNodeNum(0);
 			dd.setFeatureSizeAndBias(dim6);
 		}
@@ -311,7 +327,7 @@ public class ParameterNode implements Serializable {
 			for (int r = 0; r < rank; ++r) {
 				double[] vec = Utils.getRandomVector(n, scale * Math.sqrt(3.0 / n));
 				//double[] vec = Utils.getRandomVector(n, scale * (nodeNum > 0 ? 0.5 : 1.0) * Math.sqrt(3.0 / n));
-				//double[] vec = Utils.getRandomVector(n, 0.01);
+				//double[] vec = Utils.getRandomVector(n, 0.1);
 				//double[] vec = Utils.getRandomUnitVector(n);
 				int p = 0;
 				for (int i = 0; i < featureSize; ++i) {
@@ -329,6 +345,33 @@ public class ParameterNode implements Serializable {
 		
 		for (int i = 0; i < nodeNum; ++i) {
 			node[i].randomlyInit(scale);
+		}
+	}
+	
+	
+	public void batchUpdateAda() {
+		if (featureSize > 0) {
+			for (int r = 0; r < rank; ++r) {
+				FeatureVector dfv = dFV[r];
+				for (int i = 0, L = dfv.size(); i < L; ++i) {
+					int x = dfv.x(i);
+					if (isActive[x]) {
+						delta[x] += dfv.value(i);
+					}
+				}
+				for (int i = 0; i < featureSize; ++i) {
+					if (!isActive[i])
+						continue;
+					double g = (delta[i] - lambda * param[r][i]) * (1 - gamma);
+					sg[r][i] += g * g;
+					param[r][i] += adaAlpha / Math.sqrt(sg[r][i] + adaEps) * g;
+					delta[i] = 0.0;
+				}
+				dFV[r].clear();
+			}
+		}
+		for (int i = 0; i < nodeNum; ++i) {
+			node[i].batchUpdateAda();
 		}
 	}
 	
@@ -402,5 +445,23 @@ public class ParameterNode implements Serializable {
 		}
 		for (int i = 0; i < nodeNum; ++i)
 			node[i].unaverageParameters();
+	}
+	
+	public void setGamma(double gamma) {
+		this.gamma = gamma;
+		for (int i = 0; i < nodeNum; ++i)
+			node[i].setGamma(gamma);
+	}
+
+	public void setAdaAlpha(double alpha) {
+		this.adaAlpha = alpha;
+		for (int i = 0; i < nodeNum; ++i)
+			node[i].setAdaAlpha(alpha);
+	}
+
+	public void setMIRAC(double C) {
+		this.C = C;
+		for (int i = 0; i < nodeNum; ++i)
+			node[i].setMIRAC(C);
 	}
 }

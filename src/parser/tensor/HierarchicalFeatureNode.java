@@ -9,14 +9,14 @@ import utils.FeatureVector;
 import utils.Utils;
 
 public class HierarchicalFeatureNode extends FeatureNode {
-	public FeatureDataItem[] headLexical;
-	public FeatureDataItem[] modLexical;
-	public FeatureDataItem[] headContext;
-	public FeatureDataItem[] modContext;
-	public FeatureDataItem[] label;
-	public FeatureDataItem[] head;
-	public FeatureDataItem[] mod;
-	public FeatureDataItem[] dd;
+	public FeatureDataItem[] headLexicalData;
+	public FeatureDataItem[] modLexicalData;
+	public FeatureDataItem[] headContextData;
+	public FeatureDataItem[] modContextData;
+	public FeatureDataItem[] labelData;
+	public FeatureDataItem[] headData;
+	public FeatureDataItem[] modData;
+	public FeatureDataItem[] ddData;
 	
 	double[] typoScore;
 	double[] arcScore;
@@ -24,6 +24,10 @@ public class HierarchicalFeatureNode extends FeatureNode {
 	double[] gScore;
 	double[] g2Score;
 	double[] g3Score;
+	
+	public static final double svoWeight = 1.0 / 3;
+	public static final double typoWeight = 1.0 / 3;
+	public static final double multiWeight = 1.0 / 3;
 	
 	public HierarchicalFeatureNode(Options options, DependencyInstance inst, TensorTransfer model) {
 		this.inst = inst;
@@ -43,10 +47,10 @@ public class HierarchicalFeatureNode extends FeatureNode {
 			delexical = pn.node[1];
 		}
 		
-		headContext = new FeatureDataItem[n];
-		modContext = new FeatureDataItem[n];
-		head = new FeatureDataItem[n];
-		mod = new FeatureDataItem[n];
+		headContextData = new FeatureDataItem[n];
+		modContextData = new FeatureDataItem[n];
+		headData = new FeatureDataItem[n];
+		modData = new FeatureDataItem[n];
 		for (int i = 0; i < n; ++i) {
 			int p = inst.postagids[i];
 			int pp = i > 0 ? inst.postagids[i - 1] : pipe.ff.TOKEN_START;
@@ -66,8 +70,14 @@ public class HierarchicalFeatureNode extends FeatureNode {
 				modScore[r] = fv.dotProduct(mpn.param[r]);
 			}
 			
-			headContext[i] = new FeatureDataItem(fv, headScore);
-			modContext[i] = new FeatureDataItem(fv, modScore);
+//			for (int z = 0; z < fv.size(); ++z) {
+//				Utils.Assert(hpn.isActive[fv.x(z)]);
+//				if (i > 0)
+//					Utils.Assert(mpn.isActive[fv.x(z)]);
+//			}
+			
+			headContextData[i] = new FeatureDataItem(fv, headScore);
+			modContextData[i] = new FeatureDataItem(fv, modScore);
 			
 			// pos
 			hpn = options.learnLabel ? delexical.node[2].node[1].node[0] 
@@ -85,13 +95,13 @@ public class HierarchicalFeatureNode extends FeatureNode {
 				modScore[r] = fv.dotProduct(mpn.param[r]);
 			}
 			
-			head[i] = new FeatureDataItem(fv, headScore);
-			mod[i] = new FeatureDataItem(fv, modScore);
+			headData[i] = new FeatureDataItem(fv, headScore);
+			modData[i] = new FeatureDataItem(fv, modScore);
 		}
 		
 		// direction and distance and typo
 		int d = ParameterNode.d;
-		dd = new FeatureDataItem[2 * d];
+		ddData = new FeatureDataItem[2 * d];
 		ParameterNode dpn = options.learnLabel ? delexical.node[2].node[1].node[2] 
 				: delexical.node[2].node[2];
 		Utils.Assert(rank == dpn.rank);
@@ -101,7 +111,10 @@ public class HierarchicalFeatureNode extends FeatureNode {
 			for (int r = 0; r < rank; ++r) {
 				score[r] = fv.dotProduct(dpn.param[r]);
 			}
-			dd[i] = new FeatureDataItem(fv, score);
+//			for (int z = 0; z < fv.size(); ++z) {
+//				Utils.Assert(dpn.isActive[fv.x(z)]);
+//			}
+			ddData[i] = new FeatureDataItem(fv, score);
 		}
 		
 		// label
@@ -109,14 +122,14 @@ public class HierarchicalFeatureNode extends FeatureNode {
 			ParameterNode lpn = delexical.node[2].node[0];
 			Utils.Assert(rank == lpn.rank);
 			int labelNum = pn.labelNum;
-			label = new FeatureDataItem[labelNum];
+			labelData = new FeatureDataItem[labelNum];
 			for (int i = 0; i < labelNum; ++i) {
 				FeatureVector fv = pipe.fr.getLabelFv(i);
 				double[] score = new double[rank];
 				for (int r = 0; r < rank; ++r) {
 					score[r] = fv.dotProduct(lpn.param[r]);
 				}
-				label[i] = new FeatureDataItem(fv, score);
+				labelData[i] = new FeatureDataItem(fv, score);
 			}
 		}
 		
@@ -137,27 +150,29 @@ public class HierarchicalFeatureNode extends FeatureNode {
 		int binDist = pipe.ff.getBinnedDistance(h - m);
 		int lang = inst.lang;
 		
-		double[] hcScore = headContext[h].score;
-		double[] mcScore = modContext[m].score;
+		double[] hcScore = headContextData[h].score;
+		double[] mcScore = modContextData[m].score;
 		
-		double[] hScore = head[h].score;
-		double[] mScore = mod[m].score;
-		double[] ddScore = dd[binDist].score;
+		double[] hScore = headData[h].score;
+		double[] mScore = modData[m].score;
+		double[] ddScore = ddData[binDist].score;
 		//double[] tScore = Utils.dot(hScore, mScore, ddScore);
 		double[] tScore = Utils.dot_s(typoScore, hScore, mScore, ddScore);
 		
 		ParameterNode delexical = options.lexical ? pn.node[1] : pn;
 		FeatureVector fv = pipe.fr.getTypoFv(hp, mp, binDist, lang);
+		//Utils.Assert(fv.size() == 0);
 		ParameterNode tpn = options.learnLabel ? delexical.node[2].node[1] : delexical.node[2];
 		for (int r = 0; r < tpn.rank; ++r) {
 			tScore[r] += fv.dotProduct(tpn.param[r]);
 		}
 		
 		if (options.learnLabel) {
-			double[] lScore = label[l].score;
+			double[] lScore = labelData[l].score;
 			//double[] arcScore = Utils.dot(lScore, tScore);
 			double[] aScore = Utils.dot_s(arcScore, lScore, tScore);
 			fv = pipe.fr.getSVOFv(hp, mp, l, binDist, lang);
+			//Utils.Assert(fv.size() == 0);
 			ParameterNode apn = delexical.node[2];
 			for (int r = 0; r < apn.rank; ++r)
 				aScore[r] += fv.dotProduct(apn.param[r]);
@@ -167,7 +182,48 @@ public class HierarchicalFeatureNode extends FeatureNode {
 		//return Utils.sum(Utils.dot(hcScore, mcScore, tScore));
 		return Utils.sum(Utils.dot_s(finalScore, hcScore, mcScore, tScore));
 	}
-	
+	/*
+	@Override
+	public double getScore(int h, int m, int label) {
+		int hp = inst.postagids[h];
+		int mp = inst.postagids[m];
+		int binDist = pipe.ff.getBinnedDistance(h - m);
+		int lang = inst.lang;
+		
+		double[] hcScore = headContextData[h].score;
+		double[] mcScore = modContextData[m].score;
+		double[] hScore = headData[h].score;
+		double[] mScore = modData[m].score;
+		double[] ddScore = ddData[binDist].score;
+		double[] lScore = options.learnLabel ? labelData[label].score : null;
+
+		ParameterNode delexical = options.lexical ? pn.node[1] : pn;
+		FeatureVector tfv = pipe.fr.getTypoFv(hp, mp, binDist, lang);
+		ParameterNode tpn = options.learnLabel ? delexical.node[2].node[1] : delexical.node[2];
+		double[] tScore = new double[tpn.rank];
+		for (int r = 0; r < tpn.rank; ++r) {
+			tScore[r] = tfv.dotProduct(tpn.param[r]);
+		}
+		
+		double[] aScore = null;
+		if (options.learnLabel) {
+			FeatureVector afv = pipe.fr.getSVOFv(hp, mp, label, binDist, lang);
+			ParameterNode apn = delexical.node[2];
+			aScore = new double[apn.rank];
+			for (int r = 0; r < apn.rank; ++r)
+				aScore[r] = afv.dotProduct(apn.param[r]);
+		}
+		
+		double sum = 0.0;
+		for (int r = 0, rank = pn.rank; r < rank; ++r) {
+			sum += hcScore[r] * mcScore[r] * hScore[r] * mScore[r] * ddScore[r] * (options.learnLabel ? lScore[r] : 1.0) * multiWeight
+					+ hcScore[r] * mcScore[r] * tScore[r] * (options.learnLabel ? lScore[r] : 1.0) * typoWeight
+					+ (options.learnLabel ? hcScore[r] * mcScore[r] * aScore[r] : 0.0) * svoWeight;
+		}
+		
+		return sum;
+	}
+	*/
 	/*
 	@Override
 	public double getScore(int h, int m, int l) {
@@ -186,14 +242,21 @@ public class HierarchicalFeatureNode extends FeatureNode {
 		}
 	}
 */
-
+/*
 	@Override
-	public double addGradient(int h, int m, int l, double val, ParameterNode pn) {
+	public double addGradient(int h, int m, int label, double val, ParameterNode pn) {
 		int hp = inst.postagids[h];
 		int mp = inst.postagids[m];
 		int binDist = pipe.ff.getBinnedDistance(h - m);
 		int lang = inst.lang;
 		
+		double[] hcScore = headContextData[h].score;
+		double[] mcScore = modContextData[m].score;
+		double[] hScore = headData[h].score;
+		double[] mScore = modData[m].score;
+		double[] ddScore = ddData[binDist].score;
+		double[] lScore = options.learnLabel ? labelData[label].score : null;
+
 		ParameterNode delexical = options.lexical ? pn.node[1] : pn;
 		ParameterNode hcpn = delexical.node[0];
 		ParameterNode mcpn = delexical.node[1];
@@ -204,30 +267,113 @@ public class HierarchicalFeatureNode extends FeatureNode {
 		ParameterNode mpn = tpn.node[1];
 		ParameterNode dpn = tpn.node[2];
 		
+		FeatureVector tfv = pipe.fr.getTypoFv(hp, mp, binDist, lang);
+		FeatureVector afv = options.learnLabel ? pipe.fr.getSVOFv(hp, mp, label, binDist, lang) : null;
+		
+		double[] tScore = new double[tpn.rank];
+		for (int r = 0; r < tpn.rank; ++r) {
+			tScore[r] = tfv.dotProduct(tpn.param[r]);
+		}
+		
+		double[] aScore = null;
+		if (options.learnLabel) {
+			aScore = new double[apn.rank];
+			for (int r = 0; r < apn.rank; ++r)
+				aScore[r] = afv.dotProduct(apn.param[r]);
+		}
+		
+		double score = 0.0;
+		for (int r = 0, rank = pn.rank; r < rank; ++r) {
+			score += hcScore[r] * mcScore[r] * hScore[r] * mScore[r] * ddScore[r] * (options.learnLabel ? lScore[r] : 1.0) * multiWeight
+					+ hcScore[r] * mcScore[r] * tScore[r] * (options.learnLabel ? lScore[r] : 1.0) * typoWeight
+					+ (options.learnLabel ? hcScore[r] * mcScore[r] * aScore[r] : 0.0) * svoWeight;
+		}
+		
+		// update h, m and dd
+		for (int r = 0, rank = pn.rank; r < rank; ++r) {
+			double g = val * hcScore[r] * mcScore[r] * (options.learnLabel ? lScore[r] : 1.0) * multiWeight;
+			hpn.dFV[r].addEntries(headData[h].fv, g * mScore[r] * ddScore[r]);
+			mpn.dFV[r].addEntries(modData[m].fv, g * hScore[r] * ddScore[r]);
+			dpn.dFV[r].addEntries(ddData[binDist].fv, g * hScore[r] * mScore[r]);
+		}
+
+		if (options.learnLabel) {
+			// update l
+			for (int r = 0, rank = pn.rank; r < rank; ++r) {
+				double g = val * (hScore[r] * mScore[r] * ddScore[r] * multiWeight
+							+ tScore[r] * typoWeight)
+							* hcScore[r] * mcScore[r];
+				lpn.dFV[r].addEntries(labelData[label].fv, g);
+			}
+			
+			// update svo
+			for (int r = 0, rank = pn.rank; r < rank; ++r) {
+				double g = val * hcScore[r] * mcScore[r] * svoWeight;
+				apn.dFV[r].addEntries(afv, g);
+			}
+		}
+		
+		// update typo
+		for (int r = 0, rank = pn.rank; r < rank; ++r) {
+			double g = val * hcScore[r] * mcScore[r] * (options.learnLabel ? lScore[r] : 1.0) * typoWeight;
+			tpn.dFV[r].addEntries(tfv, g);
+		}
+		
+		// update hc and mc
+		for (int r = 0, rank = pn.rank; r < rank; ++r) {
+			double g = val * ((hScore[r] * mScore[r] * ddScore[r] * multiWeight + tScore[r] * typoWeight)
+					* (options.learnLabel ? lScore[r] : 1.0) + (options.learnLabel ? aScore[r] * svoWeight : 0.0));
+			hcpn.dFV[r].addEntries(headContextData[h].fv, g * mcScore[r]);
+			mcpn.dFV[r].addEntries(modContextData[m].fv, g * hcScore[r]);
+		}
+		
+		return score;
+	}
+	*/
+
+	@Override
+	public double addGradient(int h, int m, int label, double val, ParameterNode pn) {
+		int hp = inst.postagids[h];
+		int mp = inst.postagids[m];
+		int binDist = pipe.ff.getBinnedDistance(h - m);
+		int lang = inst.lang;
+		
 		double[] v = new double[pn.rank];
 		Arrays.fill(v, val);
 		
 		double[] g = null; 
 
-		double[] hcScore = headContext[h].score;
-		double[] mcScore = modContext[m].score;
+		double[] hcScore = headContextData[h].score;
+		double[] mcScore = modContextData[m].score;
 		
-		double[] hScore = head[h].score;
-		double[] mScore = mod[m].score;
-		double[] ddScore = dd[binDist].score;
+		double[] hScore = headData[h].score;
+		double[] mScore = modData[m].score;
+		double[] ddScore = ddData[binDist].score;
 		//double[] tScore = Utils.dot(hScore, mScore, ddScore);
 		double[] tScore = Utils.dot_s(typoScore, hScore, mScore, ddScore);
 		
+		ParameterNode delexical = options.lexical ? pn.node[1] : pn;
+		ParameterNode hcpn = delexical.node[0];
+		ParameterNode mcpn = delexical.node[1];
+		ParameterNode apn = options.learnLabel ? delexical.node[2] : null;
+		ParameterNode lpn = options.learnLabel ? apn.node[0] : null;
+		ParameterNode tpn = options.learnLabel ? apn.node[1] : delexical.node[2];
+		ParameterNode hpn = tpn.node[0];
+		ParameterNode mpn = tpn.node[1];
+		ParameterNode dpn = tpn.node[2];
+
 		FeatureVector tfv = pipe.fr.getTypoFv(hp, mp, binDist, lang);
+		//Utils.Assert(tfv.size() == 0);
 		for (int r = 0; r < tpn.rank; ++r) {
 			tScore[r] += tfv.dotProduct(tpn.param[r]);
 		}
 		
 		if (options.learnLabel) {
-			double[] lScore = label[l].score;
+			double[] lScore = labelData[label].score;
 			//double[] aScore = Utils.dot(lScore, tScore);
 			double[] aScore = Utils.dot_s(arcScore, lScore, tScore);
-			FeatureVector afv = pipe.fr.getSVOFv(hp, mp, l, binDist, lang);
+			FeatureVector afv = pipe.fr.getSVOFv(hp, mp, label, binDist, lang);
+			//Utils.Assert(afv.size() == 0);
 			for (int r = 0; r < apn.rank; ++r)
 				aScore[r] += afv.dotProduct(apn.param[r]);
 			
@@ -235,14 +381,14 @@ public class HierarchicalFeatureNode extends FeatureNode {
 			//g = Utils.dot(v, mcScore, aScore);
 			g = Utils.dot_s(gScore, v, mcScore, aScore);
 			for (int r = 0; r < hcpn.rank; ++r) {
-				hcpn.dFV[r].addEntries(headContext[h].fv, g[r]);
+				hcpn.dFV[r].addEntries(headContextData[h].fv, g[r]);
 			}
 			
 			// update mod context
 			//g = Utils.dot(v, hcScore, aScore);
 			g = Utils.dot_s(gScore, v, hcScore, aScore);
 			for (int r = 0; r < mcpn.rank; ++r) {
-				mcpn.dFV[r].addEntries(modContext[m].fv, g[r]);
+				mcpn.dFV[r].addEntries(modContextData[m].fv, g[r]);
 			}
 			
 			// update svo
@@ -256,7 +402,7 @@ public class HierarchicalFeatureNode extends FeatureNode {
 			//double[] g2 = Utils.dot(g, tScore);
 			double[] g2 = Utils.dot_s(g2Score, g, tScore);
 			for (int r = 0; r < lpn.rank; ++r) {
-				lpn.dFV[r].addEntries(label[l].fv, g2[r]);
+				lpn.dFV[r].addEntries(labelData[label].fv, g2[r]);
 			}
 			
 			// update typo
@@ -270,21 +416,21 @@ public class HierarchicalFeatureNode extends FeatureNode {
 			//double[] g3 = Utils.dot(g2, mScore, ddScore);
 			double[] g3 = Utils.dot_s(g3Score, g2, mScore, ddScore);
 			for (int r = 0; r < hpn.rank; ++r) {
-				hpn.dFV[r].addEntries(head[h].fv, g3[r]);
+				hpn.dFV[r].addEntries(headData[h].fv, g3[r]);
 			}
 			
 			// update mod
 			//g3 = Utils.dot(g2, hScore, ddScore);
 			g3 = Utils.dot_s(g3Score, g2, hScore, ddScore);
 			for (int r = 0; r < mpn.rank; ++r) {
-				mpn.dFV[r].addEntries(mod[m].fv, g3[r]);
+				mpn.dFV[r].addEntries(modData[m].fv, g3[r]);
 			}
 			
 			// update dd
 			//g3 = Utils.dot(g2, hScore, mScore);
 			g3 = Utils.dot_s(g3Score, g2, hScore, mScore);
 			for (int r = 0; r < dpn.rank; ++r) {
-				dpn.dFV[r].addEntries(dd[binDist].fv, g3[r]);
+				dpn.dFV[r].addEntries(ddData[binDist].fv, g3[r]);
 			}
 			
 			return Utils.sum(Utils.dot_s(finalScore, hcScore, mcScore, aScore));
@@ -293,13 +439,13 @@ public class HierarchicalFeatureNode extends FeatureNode {
 			// update head context
 			g = Utils.dot(v, mcScore, tScore);
 			for (int r = 0; r < hcpn.rank; ++r) {
-				hcpn.dFV[r].addEntries(headContext[h].fv, g[r]);
+				hcpn.dFV[r].addEntries(headContextData[h].fv, g[r]);
 			}
 			
 			// update mod context
 			g = Utils.dot(v, hcScore, tScore);
 			for (int r = 0; r < mcpn.rank; ++r) {
-				mcpn.dFV[r].addEntries(modContext[m].fv, g[r]);
+				mcpn.dFV[r].addEntries(modContextData[m].fv, g[r]);
 			}
 			
 			// update typo
@@ -311,19 +457,19 @@ public class HierarchicalFeatureNode extends FeatureNode {
 			// update head
 			double[] g2 = Utils.dot(g, mScore, ddScore);
 			for (int r = 0; r < hpn.rank; ++r) {
-				hpn.dFV[r].addEntries(head[h].fv, g2[r]);
+				hpn.dFV[r].addEntries(headData[h].fv, g2[r]);
 			}
 			
 			// update mod
 			g2 = Utils.dot(g, hScore, ddScore);
 			for (int r = 0; r < mpn.rank; ++r) {
-				mpn.dFV[r].addEntries(mod[m].fv, g2[r]);
+				mpn.dFV[r].addEntries(modData[m].fv, g2[r]);
 			}
 			
 			// update dd
 			g2 = Utils.dot(g, hScore, mScore);
 			for (int r = 0; r < dpn.rank; ++r) {
-				dpn.dFV[r].addEntries(dd[binDist].fv, g2[r]);
+				dpn.dFV[r].addEntries(ddData[binDist].fv, g2[r]);
 			}
 			
 			return Utils.sum(Utils.dot_s(finalScore, hcScore, mcScore, tScore));

@@ -4,11 +4,14 @@ import static parser.feature.FeatureTemplate.Arc.numArcFeatBits;
 
 import java.io.Serializable;
 
+import gnu.trove.set.hash.TIntHashSet;
 import gnu.trove.set.hash.TLongHashSet;
 import parser.DependencyInstance;
 import parser.Options;
+import parser.Parameters;
 import parser.Options.TensorMode;
 import parser.feature.FeatureTemplate.Arc;
+import parser.tensor.LowRankParam;
 import parser.tensor.ParameterNode;
 import utils.Alphabet;
 import utils.FeatureVector;
@@ -41,23 +44,35 @@ public class FeatureFactory implements Serializable {
 	public int tagNumBits, depNumBits, flagBits;
 
 	public int posNum, labelNum;
-	public TypologicalInfo typo;
-	public FeatureRepo fr;
     public ParameterNode pn;
+	public transient TypologicalInfo typo;
+	public transient FeatureRepo fr;
 
-    public Alphabet arcAlphabet;
-    
-	public int numArcFeats;	// number of arc structure features
+    //public Alphabet arcAlphabet;
+	//public int numArcFeats;	// number of arc structure features
+
+	//public final int numArcFeats = 10503061; //115911564;	// number of arc structure features
+	//public final int numLabeledArcFeats = 10503061; //115911564;
+	public final int numArcFeats = 115911564; //;	// number of arc structure features
+	public final int numLabeledArcFeats = 115911564; //;
+	
+	private boolean stoppedGrowth;
+	public transient TLongHashSet featureHashSet;
+	//public transient TIntHashSet featureIDSet;
 
 	public FeatureFactory(Options options) {
 		this.options = options;
-		arcAlphabet = new Alphabet();
-		numArcFeats = 0;
+		//arcAlphabet = new Alphabet();
+		//numArcFeats = 0;
+		stoppedGrowth = false;
+		featureHashSet = new TLongHashSet(100000);
+		//featureIDSet = new TIntHashSet(100000);
 	}
 
 	public void closeAlphabets()
 	{
-		arcAlphabet.stopGrowth();
+		//arcAlphabet.stopGrowth();
+		stoppedGrowth = true;
 	}
 
 	public void initFeatureAlphabets(DependencyInstance inst) {
@@ -224,7 +239,7 @@ public class FeatureFactory implements Serializable {
     	code = 0;
     	fv.addEntry(code);
 
-    	// p0, p1, p-1
+    	// p0, p-1, p1
     	code = bias[0] + p0;
     	fv.addEntry(code);
     	code = bias[1] + pLeft;
@@ -257,14 +272,23 @@ public class FeatureFactory implements Serializable {
     	int code = 0;
     	int d = ParameterNode.d;
     	fv.addEntry(code);
-
-    	int c = typo.getClass(lang);
-    	code = c * 2 * d + binDist;
-    	fv.addEntry(bias[0] + code);
     	
+    	int c = typo.getClass(lang);
     	int f = typo.getFamily(lang);
-    	code = f * 2 * d + binDist;
+    	code = c;
+    	fv.addEntry(bias[0] + code);
+    	code = f;
     	fv.addEntry(bias[1] + code);
+    	
+    	code = binDist >= d ? binDist - d : binDist;
+    	fv.addEntry(bias[2] + code);
+
+    	//int c = 0;
+    	code = c * 2 * d + binDist;
+    	fv.addEntry(bias[3] + code);
+    	
+    	code = f * 2 * d + binDist;
+    	fv.addEntry(bias[4] + code);
     	
     	return fv;
     }
@@ -308,28 +332,92 @@ public class FeatureFactory implements Serializable {
     	fv.addEntry(code);
     	
     	int c = typo.getClass(lang);
-    	code = c * posNum + pp;
-    	fv.addEntry(bias[0] + code);
-    	code = c * posNum + np;
-    	fv.addEntry(bias[1] + code);
-    	
     	int f = typo.getFamily(lang);
-    	code = f * posNum + pp;
+    	
+    	//code = c;
+    	//fv.addEntry(bias[0] + code);
+    	//code = f;
+    	//fv.addEntry(bias[1] + code);
+    	
+    	//int c = 0;
+    	code = c * posNum + pp;
     	fv.addEntry(bias[2] + code);
-    	code = f * posNum + np;
+    	code = f * posNum + pp;
     	fv.addEntry(bias[3] + code);
+    	
+    	code = c * posNum + np;
+    	fv.addEntry(bias[4] + code);
+    	code = f * posNum + np;
+    	fv.addEntry(bias[5] + code);
+    	
+    	//code = pp;
+    	//fv.addEntry(bias[4] + code);
+    	//code = np;
+    	//fv.addEntry(bias[5] + code);
     	
     	return fv;
     }
     
-    public FeatureVector createSVOFeatures(int hp, int mp, int l, int binDist, int lang, int dim, int[] bias) {
+    public FeatureVector createSVOFeatures(int hp, int mp, int label, int binDist, int lang, int dim, int[] bias) {
     	// no bias feature
     	
     	FeatureVector fv = new FeatureVector(dim);
     	if (hp != POS_VERB || (mp != POS_NOUN && mp != POS_PRON) 
-    			|| (l != LABEL_SBJ && l != LABEL_SBJPASS && l != LABEL_DOBJ && l != LABEL_IOBJ))
+    			|| (label != LABEL_SBJ && label != LABEL_SBJPASS && label != LABEL_DOBJ && label != LABEL_IOBJ))
     		Utils.ThrowException("should not go here");
     	
+    	int code = 0;
+    	int d = ParameterNode.d;
+    	//int dir = binDist < d ? 0 : 1;		//0: left; 1: right
+    	//int offset = 4;
+    	int dir = binDist;
+    	int offset = 2 * d * 2;
+    	if (mp == POS_NOUN) {
+    		if (label == LABEL_SBJ) {
+    			int v = typo.getFeature(lang)[TypoFeatureType.SV.ordinal()];
+    			code = v * offset + dir * 2;
+    			fv.addEntry(code);
+    		}
+    		else if (label == LABEL_SBJPASS) {
+    			int v = typo.getFeature(lang)[TypoFeatureType.SV.ordinal()];
+    			code = v * offset + dir * 2 + 1;
+    			fv.addEntry(code);
+    		}
+    		else if (label == LABEL_DOBJ) {
+    			int v = typo.getFeature(lang)[TypoFeatureType.VO.ordinal()];
+    			code = v * offset + dir * 2;
+    			fv.addEntry(bias[1] + code);
+    		}
+    		else if (label == LABEL_IOBJ) {
+    			int v = typo.getFeature(lang)[TypoFeatureType.VO.ordinal()];
+    			code = v * offset + dir * 2 + 1;
+    			fv.addEntry(bias[1] + code);
+    		}
+    	}
+    	else if (mp == POS_PRON) {
+    		if (label == LABEL_SBJ) {
+    			int v = typo.getFeature(lang)[TypoFeatureType.SV.ordinal()];
+    			code = v * offset + dir * 2;
+    			fv.addEntry(bias[0] + code);
+    		}
+    		else if (label == LABEL_SBJPASS) {
+    			int v = typo.getFeature(lang)[TypoFeatureType.SV.ordinal()];
+    			code = v * offset + dir * 2 + 1;
+    			fv.addEntry(bias[0] + code);
+    		}
+    		else if (label == LABEL_DOBJ) {
+    			int v = typo.getFeature(lang)[TypoFeatureType.VO.ordinal()];
+    			code = v * offset + dir * 2;
+    			fv.addEntry(bias[2] + code);
+    		}
+    		else if (label == LABEL_IOBJ) {
+    			int v = typo.getFeature(lang)[TypoFeatureType.VO.ordinal()];
+    			code = v * offset + dir * 2 + 1;
+    			fv.addEntry(bias[2] + code);
+    		}
+    	}
+
+    	/*
     	int code = 0;
     	int d = ParameterNode.d;
     	if (l == LABEL_SBJ || l == LABEL_SBJPASS) {
@@ -394,15 +482,44 @@ public class FeatureFactory implements Serializable {
     			//fv.addEntry(bias[2] + code);
     		}
     	}
-    	
+    	*/
     	return fv;
     }
     
     public FeatureVector createTypoFeatures(int hp, int mp, int binDist, int lang, int dim, int[] bias) {
-    	// no bias featuer
+    	// no bias feature
     	
     	FeatureVector fv = new FeatureVector(dim);
     	
+    	int code = 0;
+    	int d = ParameterNode.d;
+    	//int dir = binDist < d ? 0 : 1;		//0: left; 1: right
+    	//int offset = 2;
+    	int dir = binDist;
+    	int offset = 2 * d;
+    	
+    	if (hp == POS_ADP && mp == POS_NOUN) {
+    		int v = typo.getFeature(lang)[TypoFeatureType.Prep.ordinal()];
+    		code = v * offset + dir;
+    		fv.addEntry(code);
+    	}
+    	else if (hp == POS_ADP && mp == POS_PRON) {
+    		int v = typo.getFeature(lang)[TypoFeatureType.Prep.ordinal()];
+    		code = v * offset + dir;
+    		fv.addEntry(bias[0] + code);
+    	}
+    	else if (hp == POS_NOUN && mp == POS_NOUN) {
+    		int v = typo.getFeature(lang)[TypoFeatureType.Gen.ordinal()];
+    		code = v * offset + dir;
+    		fv.addEntry(bias[1] + code);
+    	}
+    	else if (hp == POS_NOUN && mp == POS_ADJ) {
+    		int v = typo.getFeature(lang)[TypoFeatureType.Adj.ordinal()];
+    		code = v * offset + dir;
+    		fv.addEntry(bias[2] + code);
+    	}
+    	
+    	/*
     	int code = 0;
     	int d = ParameterNode.d;
     	
@@ -499,7 +616,7 @@ public class FeatureFactory implements Serializable {
     			//fv.addEntry(bias[4] + code);
     		}
     	}
-    	
+    	*/
     	return fv;
     }
     
@@ -511,12 +628,243 @@ public class FeatureFactory implements Serializable {
     {
     	FeatureVector fv = new FeatureVector(numArcFeats);
     	
-    	//addDelexicalFeatures(inst, h, m, 0, fv);
-    	addDelexicalCFFeatures(inst, h, m, 0, fv);
-    	addBareFeatures(inst, h, m, 0, fv);
-    	addSelectiveFeatures(inst, h, m, 0, fv);
+    	if (options.direct)
+    		addDelexicalFeatures(inst, h, m, fv);
+    	else {
+    		addDelexicalCFFeatures(inst, h, m, fv);
+    		addBareFeatures(inst, h, m, fv);
+    		addSelectiveFeatures(inst, h, m, fv);
+    	}
     	
     	return fv;
+    }
+    
+    
+    public void addDelexicalFeatures(DependencyInstance inst, int h, int m, FeatureVector fv) {
+	    long code = 0;
+		int[] pos = inst.postagids;
+		
+		int attDist = getBinnedDistance(h - m) + 1;
+		int n = inst.length;
+		
+		int HP = pos[h] + 1;
+		int MP = pos[m] + 1;
+		int HPp = (h > 0 ? pos[h - 1] : TOKEN_START) + 1;
+		int HPn = (h < n - 1 ? pos[h + 1] : TOKEN_END) + 1;
+		int MPp = (m > 0 ? pos[m - 1] : TOKEN_START) + 1;
+		int MPn = (m < n - 1 ? pos[m + 1] : TOKEN_END) + 1;
+		
+    	code = createArcCodeP(Arc.ATTDIST, 0);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeP(Arc.HP, HP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+
+    	code = createArcCodeP(Arc.MP, MP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+
+    	code = createArcCodePP(Arc.HP_MP, HP, MP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+
+    	code = createArcCodePPP(Arc.HPp_HP_MP, HPp, HP, MP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+
+    	code = createArcCodePPP(Arc.HP_HPn_MP, HP, HPn, MP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+
+    	code = createArcCodePPP(Arc.HP_MPp_MP, HP, MPp, MP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+
+    	code = createArcCodePPP(Arc.HP_MP_MPn, HP, MP, MPn);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+
+    	code = createArcCodePPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+
+    	code = createArcCodePPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+
+    	code = createArcCodePPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+
+    	code = createArcCodePPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+
+    	int large = Math.max(h, m);
+    	int small = Math.min(h, m);
+    	
+    	for (int i = small + 1; i < large; ++i) {
+    		int BP = pos[i] + 1;
+        	code = createArcCodePPP(Arc.HP_BP_MP, HP, BP, MP);
+        	addArcFeature(code, fv);
+    	}
+
+    }
+    
+    public void addDelexicalCFFeatures(DependencyInstance inst, int h, int m, FeatureVector fv) {
+	    long code = 0;
+		int[] pos = inst.postagids;
+		
+		int attDist = getBinnedDistance(h - m) + 1;
+		int c = ((typo.getClass(inst.lang) + 1) << numArcFeatBits) << flagBits;
+		int f = ((typo.getFamily(inst.lang) + typo.classNum + 1) << numArcFeatBits) << flagBits;
+		int n = inst.length;
+		
+		int HP = pos[h] + 1;
+		int MP = pos[m] + 1;
+		int HPp = (h > 0 ? pos[h - 1] : TOKEN_START) + 1;
+		int HPn = (h < n - 1 ? pos[h + 1] : TOKEN_END) + 1;
+		int MPp = (m > 0 ? pos[m - 1] : TOKEN_START) + 1;
+		int MPn = (m < n - 1 ? pos[m + 1] : TOKEN_END) + 1;
+		
+    	code = createArcCodePP(Arc.ATTDIST, 0, 0);
+    	addArcFeature(code | c | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
+    	
+    	code = createArcCodePP(Arc.HP, HP, 0);
+    	addArcFeature(code | c, fv);
+    	addArcFeature(code | f, fv);
+    	addArcFeature(code | c | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
+
+    	code = createArcCodePP(Arc.MP, MP, 0);
+    	addArcFeature(code | c, fv);
+    	addArcFeature(code | f, fv);
+    	addArcFeature(code | c | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
+
+    	code = createArcCodePPP(Arc.HP_MP, HP, MP, 0);
+    	addArcFeature(code | c, fv);
+    	addArcFeature(code | f, fv);
+    	addArcFeature(code | c | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
+
+    	code = createArcCodePPPP(Arc.HPp_HP_MP, HPp, HP, MP, 0);
+    	addArcFeature(code | c, fv);
+    	addArcFeature(code | f, fv);
+    	addArcFeature(code | c | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
+
+    	code = createArcCodePPPP(Arc.HP_HPn_MP, HP, HPn, MP, 0);
+    	addArcFeature(code | c, fv);
+    	addArcFeature(code | f, fv);
+    	addArcFeature(code | c | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
+
+    	code = createArcCodePPPP(Arc.HP_MPp_MP, HP, MPp, MP, 0);
+    	addArcFeature(code | c, fv);
+    	addArcFeature(code | f, fv);
+    	addArcFeature(code | c | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
+
+    	code = createArcCodePPPP(Arc.HP_MP_MPn, HP, MP, MPn, 0);
+    	addArcFeature(code | c, fv);
+    	addArcFeature(code | f, fv);
+    	addArcFeature(code | c | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
+
+    	code = createArcCodePPPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn, 0);
+    	addArcFeature(code | c, fv);
+    	addArcFeature(code | f, fv);
+    	addArcFeature(code | c | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
+
+    	code = createArcCodePPPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn, 0);
+    	addArcFeature(code | c, fv);
+    	addArcFeature(code | f, fv);
+    	addArcFeature(code | c | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
+
+    	code = createArcCodePPPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP, 0);
+    	addArcFeature(code | c, fv);
+    	addArcFeature(code | f, fv);
+    	addArcFeature(code | c | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
+
+    	code = createArcCodePPPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP, 0);
+    	addArcFeature(code | c, fv);
+    	addArcFeature(code | f, fv);
+    	addArcFeature(code | c | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
+
+    	int large = Math.max(h, m);
+    	int small = Math.min(h, m);
+    	
+    	for (int i = small + 1; i < large; ++i) {
+//    		int BP = pos[i] + 1;
+//        	code = createArcCodePPPP(Arc.HP_BP_MP, HP, BP, MP, 0);
+//        	addArcFeature(code | c, fv);
+//        	addArcFeature(code | f, fv);
+    	}
+    }
+    
+    public void addBareFeatures (DependencyInstance inst, int h, int m, FeatureVector fv) {
+	    long code = 0;
+		int[] pos = inst.postagids;
+		
+		int dist = getBinnedDistance(Math.abs(h - m)) + 1;
+		
+		int HP = pos[h] + 1;
+		int MP = pos[m] + 1;
+
+    	code = createArcCodeP(Arc.DIST, 0);
+    	addArcFeature(code | dist, fv);
+    	
+    	code = createArcCodeP(Arc.B_HP, HP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | dist, fv);
+
+    	code = createArcCodeP(Arc.B_MP, MP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | dist, fv);
+
+    	code = createArcCodePP(Arc.B_HP_MP, HP, MP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | dist, fv);
+    }
+    
+    public void addSelectiveFeatures (DependencyInstance inst, int h, int m, FeatureVector fv) {
+	    long code = 0;
+		int[] pos = inst.postagids;
+		int[] feature = typo.getFeature(inst.lang);
+		
+		//int dir = h > m ? 1 : 2;
+		int dir = getBinnedDistance(h - m) + 1;
+		
+		int HP = pos[h];
+		int MP = pos[m];
+
+	    if (HP == POS_ADP && MP == POS_NOUN) {
+			    code = createArcCodeP(Arc.ADP_NOUN, feature[TypoFeatureType.Prep.ordinal()] + 1);
+		    	addArcFeature(code | dir, fv);
+		    }
+	    	
+	    if (HP == POS_ADP && MP == POS_PRON) {
+			    code = createArcCodeP(Arc.ADP_PRON, feature[TypoFeatureType.Prep.ordinal()] + 1);
+		    	addArcFeature(code | dir, fv);
+		    }
+	    	
+	    if (HP == POS_NOUN && MP == POS_NOUN) {
+			    code = createArcCodeP(Arc.GEN, feature[TypoFeatureType.Gen.ordinal()] + 1);
+		    	addArcFeature(code | dir, fv);
+		    }
+	    	
+	    if (HP == POS_NOUN && MP == POS_ADJ) {
+			    code = createArcCodeP(Arc.ADJ, feature[TypoFeatureType.Adj.ordinal()] + 1);
+		    	addArcFeature(code | dir, fv);
+		    }
+		   
     }
     
     public FeatureVector createArcLabelFeatures(DependencyInstance inst, int h, int m, int label) 
@@ -525,10 +873,13 @@ public class FeatureFactory implements Serializable {
     	if (!options.learnLabel) 
     		return fv;
     	
-    	//addDelexicalFeatures(inst, h, m, label + 1, fv);
-    	addDelexicalCFFeatures(inst, h, m, label + 1, fv);
-    	addBareFeatures(inst, h, m, label + 1, fv);
-    	addSelectiveFeatures(inst, h, m, label + 1, fv);
+    	if (options.direct)
+    		addDelexicalFeatures(inst, h, m, label + 1, fv);
+    	else {
+    		addDelexicalCFFeatures(inst, h, m, label + 1, fv);
+    		addBareFeatures(inst, h, m, label + 1, fv);
+    		addSelectiveFeatures(inst, h, m, label + 1, fv);
+    	}
     	
     	return fv;
     }
@@ -549,59 +900,59 @@ public class FeatureFactory implements Serializable {
 		int MPn = (m < n - 1 ? pos[m + 1] : TOKEN_END) + 1;
 		
     	code = createArcCodeP(Arc.ATTDIST, 0) | tid;
-    	addArcFeature(code | attDist, fv);
+    	addLabeledArcFeature(code | attDist, fv);
     	
     	code = createArcCodeP(Arc.HP, HP) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | attDist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | attDist, fv);
 
     	code = createArcCodeP(Arc.MP, MP) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | attDist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | attDist, fv);
 
     	code = createArcCodePP(Arc.HP_MP, HP, MP) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | attDist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | attDist, fv);
 
     	code = createArcCodePPP(Arc.HPp_HP_MP, HPp, HP, MP) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | attDist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | attDist, fv);
 
     	code = createArcCodePPP(Arc.HP_HPn_MP, HP, HPn, MP) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | attDist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | attDist, fv);
 
     	code = createArcCodePPP(Arc.HP_MPp_MP, HP, MPp, MP) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | attDist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | attDist, fv);
 
     	code = createArcCodePPP(Arc.HP_MP_MPn, HP, MP, MPn) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | attDist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | attDist, fv);
 
     	code = createArcCodePPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | attDist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | attDist, fv);
 
     	code = createArcCodePPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | attDist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | attDist, fv);
 
     	code = createArcCodePPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | attDist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | attDist, fv);
 
     	code = createArcCodePPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | attDist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | attDist, fv);
 
     	int large = Math.max(h, m);
     	int small = Math.min(h, m);
     	
     	for (int i = small + 1; i < large; ++i) {
-    		int BP = pos[i];
+    		int BP = pos[i] + 1;
         	code = createArcCodePPP(Arc.HP_BP_MP, HP, BP, MP) | tid;
-        	addArcFeature(code, fv);
+        	addLabeledArcFeature(code, fv);
     	}
 
     }
@@ -612,8 +963,8 @@ public class FeatureFactory implements Serializable {
 		
 		int tid = label << 4;
 		int attDist = getBinnedDistance(h - m) + 1;
-		int c = (typo.getClass(inst.lang) + 1) << flagBits;
-		int f = (typo.getFamily(inst.lang) + typo.classNum + 1) << flagBits;
+		int c = ((typo.getClass(inst.lang) + 1) << numArcFeatBits) << flagBits;
+		int f = ((typo.getFamily(inst.lang) + typo.classNum + 1) << numArcFeatBits) << flagBits;
 		int n = inst.length;
 		
 		int HP = pos[h] + 1;
@@ -623,84 +974,84 @@ public class FeatureFactory implements Serializable {
 		int MPp = (m > 0 ? pos[m - 1] : TOKEN_START) + 1;
 		int MPn = (m < n - 1 ? pos[m + 1] : TOKEN_END) + 1;
 		
-    	code = (createArcCodeP(Arc.ATTDIST, 0) << tagNumBits) | tid;
-    	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	code = createArcCodePP(Arc.ATTDIST, 0, 0) | tid;
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
     	
-    	code = (createArcCodeP(Arc.HP, HP) << tagNumBits) | tid;
-    	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
-    	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	code = createArcCodePP(Arc.HP, HP, 0) | tid;
+    	addLabeledArcFeature(code | c, fv);
+    	addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
-    	code = (createArcCodeP(Arc.MP, MP) << tagNumBits) | tid;
-    	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
-    	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	code = createArcCodePP(Arc.MP, MP, 0) | tid;
+    	addLabeledArcFeature(code | c, fv);
+    	addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
-    	code = (createArcCodePP(Arc.HP_MP, HP, MP) << tagNumBits) | tid;
-    	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
-    	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	code = createArcCodePPP(Arc.HP_MP, HP, MP, 0) | tid;
+    	addLabeledArcFeature(code | c, fv);
+    	addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
-    	code = (createArcCodePPP(Arc.HPp_HP_MP, HPp, HP, MP) << tagNumBits) | tid;
-    	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
-    	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	code = createArcCodePPPP(Arc.HPp_HP_MP, HPp, HP, MP, 0) | tid;
+    	addLabeledArcFeature(code | c, fv);
+    	addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
-    	code = (createArcCodePPP(Arc.HP_HPn_MP, HP, HPn, MP) << tagNumBits) | tid;
-    	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
-    	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	code = createArcCodePPPP(Arc.HP_HPn_MP, HP, HPn, MP, 0) | tid;
+    	addLabeledArcFeature(code | c, fv);
+    	addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
-    	code = (createArcCodePPP(Arc.HP_MPp_MP, HP, MPp, MP) << tagNumBits) | tid;
-    	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
-    	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	code = createArcCodePPPP(Arc.HP_MPp_MP, HP, MPp, MP, 0) | tid;
+    	addLabeledArcFeature(code | c, fv);
+    	addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
-    	code = (createArcCodePPP(Arc.HP_MP_MPn, HP, MP, MPn) << tagNumBits) | tid;
-    	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
-    	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	code = createArcCodePPPP(Arc.HP_MP_MPn, HP, MP, MPn, 0) | tid;
+    	addLabeledArcFeature(code | c, fv);
+    	addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
-    	code = (createArcCodePPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn) << tagNumBits) | tid;
-    	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
-    	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	code = createArcCodePPPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn, 0) | tid;
+    	addLabeledArcFeature(code | c, fv);
+    	addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
-    	code = (createArcCodePPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn) << tagNumBits) | tid;
-    	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
-    	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	code = createArcCodePPPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn, 0) | tid;
+    	addLabeledArcFeature(code | c, fv);
+    	addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
-    	code = (createArcCodePPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP) << tagNumBits) | tid;
-    	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
-    	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	code = createArcCodePPPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP, 0) | tid;
+    	addLabeledArcFeature(code | c, fv);
+    	addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
-    	code = (createArcCodePPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP) << tagNumBits) | tid;
-    	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
-    	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	code = createArcCodePPPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP, 0) | tid;
+    	addLabeledArcFeature(code | c, fv);
+    	addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
     	int large = Math.max(h, m);
     	int small = Math.min(h, m);
     	
     	for (int i = small + 1; i < large; ++i) {
-    		int BP = pos[i];
-        	code = (createArcCodePPP(Arc.HP_BP_MP, HP, BP, MP) << tagNumBits) | tid;
-        	addArcFeature(code | c, fv);
-        	addArcFeature(code | f, fv);
+//    		int BP = pos[i] + 1;
+//        	code = createArcCodePPPP(Arc.HP_BP_MP, HP, BP, MP, 0) | tid;
+//        	addLabeledArcFeature(code | c, fv);
+//        	addLabeledArcFeature(code | f, fv);
     	}
     }
     
@@ -715,19 +1066,19 @@ public class FeatureFactory implements Serializable {
 		int MP = pos[m] + 1;
 
     	code = createArcCodeP(Arc.DIST, 0) | tid;
-    	addArcFeature(code | dist, fv);
+    	addLabeledArcFeature(code | dist, fv);
     	
     	code = createArcCodeP(Arc.B_HP, HP) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | dist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | dist, fv);
 
     	code = createArcCodeP(Arc.B_MP, MP) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | dist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | dist, fv);
 
     	code = createArcCodePP(Arc.B_HP_MP, HP, MP) | tid;
-    	addArcFeature(code, fv);
-    	addArcFeature(code | dist, fv);
+    	addLabeledArcFeature(code, fv);
+    	addLabeledArcFeature(code | dist, fv);
     }
     
     public void addSelectiveFeatures (DependencyInstance inst, int h, int m, int label, FeatureVector fv) {
@@ -736,53 +1087,54 @@ public class FeatureFactory implements Serializable {
 		int[] feature = typo.getFeature(inst.lang);
 		
 		int tid = label << 4;
-		int dir = h < m ? 1 : 2;
+		//int dir = h > m ? 1 : 2;
+		int dir = getBinnedDistance(h - m) + 1;
 		
 		int HP = pos[h];
 		int MP = pos[m];
-
+		
 	    if (HP == POS_VERB && MP == POS_NOUN && 
-	    	(label == LABEL_SBJ || label == LABEL_SBJPASS)) {
+	    	(label - 1 == LABEL_SBJ || label - 1 == LABEL_SBJPASS)) {
 		    code = createArcCodeP(Arc.SV_NOUN, feature[TypoFeatureType.SV.ordinal()] + 1) | tid;
-	    	addArcFeature(code | dir, fv);
+		    addLabeledArcFeature(code | dir, fv);
 	    }
     	
 	    if (HP == POS_VERB && MP == POS_PRON && 
-		    	(label == LABEL_SBJ || label == LABEL_SBJPASS)) {
+		    	(label - 1 == LABEL_SBJ || label - 1 == LABEL_SBJPASS)) {
 	    	code = createArcCodeP(Arc.SV_PRON, feature[TypoFeatureType.SV.ordinal()] + 1) | tid;
-	    	addArcFeature(code | dir, fv);
+	    	addLabeledArcFeature(code | dir, fv);
 	    }
 	    	
 	    if (HP == POS_VERB && MP == POS_NOUN && 
-		    	(label == LABEL_DOBJ || label == LABEL_IOBJ)) {
-	    	code = createArcCodeP(Arc.VO_NOUN, feature[TypoFeatureType.VO.ordinal()]) | tid;
-	    	addArcFeature(code | dir, fv);
+		    	(label - 1 == LABEL_DOBJ || label - 1 == LABEL_IOBJ)) {
+	    	code = createArcCodeP(Arc.VO_NOUN, feature[TypoFeatureType.VO.ordinal()] + 1) | tid;
+	    	addLabeledArcFeature(code | dir, fv);
 	    }
 	    	
 	    if (HP == POS_VERB && MP == POS_PRON && 
-		    	(label == LABEL_DOBJ || label == LABEL_IOBJ)) {
-	    	code = createArcCodeP(Arc.VO_PRON, feature[TypoFeatureType.VO.ordinal()]) | tid;
-	    	addArcFeature(code | dir, fv);
+		    	(label - 1 == LABEL_DOBJ || label - 1 == LABEL_IOBJ)) {
+	    	code = createArcCodeP(Arc.VO_PRON, feature[TypoFeatureType.VO.ordinal()] + 1) | tid;
+	    	addLabeledArcFeature(code | dir, fv);
 	    }
 	    	
 	    if (HP == POS_ADP && MP == POS_NOUN) {
-			    code = createArcCodeP(Arc.ADP_NOUN, feature[TypoFeatureType.Prep.ordinal()]) | tid;
-		    	addArcFeature(code | dir, fv);
+			    code = createArcCodeP(Arc.ADP_NOUN, feature[TypoFeatureType.Prep.ordinal()] + 1) | tid;
+			    addLabeledArcFeature(code | dir, fv);
 		    }
 	    	
 	    if (HP == POS_ADP && MP == POS_PRON) {
-			    code = createArcCodeP(Arc.ADP_PRON, feature[TypoFeatureType.Prep.ordinal()]) | tid;
-		    	addArcFeature(code | dir, fv);
+			    code = createArcCodeP(Arc.ADP_PRON, feature[TypoFeatureType.Prep.ordinal()] + 1) | tid;
+			    addLabeledArcFeature(code | dir, fv);
 		    }
 	    	
 	    if (HP == POS_NOUN && MP == POS_NOUN) {
-			    code = createArcCodeP(Arc.GEN, feature[TypoFeatureType.Gen.ordinal()]) | tid;
-		    	addArcFeature(code | dir, fv);
+			    code = createArcCodeP(Arc.GEN, feature[TypoFeatureType.Gen.ordinal()] + 1) | tid;
+			    addLabeledArcFeature(code | dir, fv);
 		    }
 	    	
 	    if (HP == POS_NOUN && MP == POS_ADJ) {
-			    code = createArcCodeP(Arc.ADJ, feature[TypoFeatureType.Adj.ordinal()]) | tid;
-		    	addArcFeature(code | dir, fv);
+			    code = createArcCodeP(Arc.ADJ, feature[TypoFeatureType.Adj.ordinal()] + 1) | tid;
+			    addLabeledArcFeature(code | dir, fv);
 		    }
     }
     
@@ -833,6 +1185,11 @@ public class FeatureFactory implements Serializable {
 		return ((((((((x << tagNumBits) | y) << tagNumBits) | z ) << tagNumBits) | w ) << numArcFeatBits) | temp.ordinal()) << flagBits;
 	}
 	
+	public long createArcCodePPPPP(FeatureTemplate.Arc temp, long x, long y, long z, long w, long v)
+	{
+		return ((((((((((x << tagNumBits) | y) << tagNumBits) | z ) << tagNumBits) | w ) << tagNumBits) | v ) << numArcFeatBits) | temp.ordinal()) << flagBits;
+	}
+/*	
 	public void addArcFeature(long code, FeatureVector fv)
 	{
 		int id = arcAlphabet.lookupIndex(code, numArcFeats);
@@ -841,5 +1198,872 @@ public class FeatureFactory implements Serializable {
 			if (id == numArcFeats) ++numArcFeats;
 		}
 	}
+
+	public void addLabeledArcFeature(long code, FeatureVector fv)
+	{
+		int id = arcAlphabet.lookupIndex(code, numArcFeats);
+		if (id >= 0) {
+			fv.addEntry(id, 1.0);
+			if (id == numArcFeats) ++numArcFeats;
+		}
+	}
+	*/
 	
+    public final void addArcFeature(long code, FeatureVector mat) {
+    	long hash = (code ^ (code&0xffffffff00000000L) >>> 32)*31;
+    	int id = (int)((hash < 0 ? -hash : hash) % numArcFeats);
+    	//int id = ((hash ^ (hash >> 31)) - (hash >> 31)) % 115911564;
+    	mat.addEntry(id, 1.0);
+    	if (!stoppedGrowth) {
+    		featureHashSet.add(code);
+    	}
+    }
+    
+    public final void addArcFeature(long code, double value, FeatureVector mat) {
+    	long hash = (code ^ (code&0xffffffff00000000L) >>> 32)*31;
+    	int id = (int)((hash < 0 ? -hash : hash) % numArcFeats);
+    	//int id = ((hash ^ (hash >> 31)) - (hash >> 31)) % 115911564;    	
+    	mat.addEntry(id, value);
+    	if (!stoppedGrowth)
+    		featureHashSet.add(code);
+    }
+    
+    public final void addLabeledArcFeature(long code, FeatureVector mat) {
+    	long hash = (code ^ (code&0xffffffff00000000L) >>> 32)*31;
+    	int id = (int)((hash < 0 ? -hash : hash) % numLabeledArcFeats);
+    	//int id = ((hash ^ (hash >> 31)) - (hash >> 31)) % 115911564;    	
+    	mat.addEntry(id, 1.0);
+    	if (!stoppedGrowth)
+    		featureHashSet.add(code);
+    }
+    
+    public final void addLabeledArcFeature(long code, double value, FeatureVector mat) {
+    	long hash = (code ^ (code&0xffffffff00000000L) >>> 32)*31;
+    	int id = (int)((hash < 0 ? -hash : hash) % numLabeledArcFeats);
+    	//int id = ((hash ^ (hash >> 31)) - (hash >> 31)) % 115911564;    	
+    	mat.addEntry(id, value);
+    	if (!stoppedGrowth)
+    		featureHashSet.add(code);
+    }
+    
+    // fill tensor parameters
+    public int hashcode2int(long code) {
+    	long hash = (code ^ (code&0xffffffff00000000L) >>> 32)*31;
+    	int id = (int)((hash < 0 ? -hash : hash) % numArcFeats);
+    	return id;
+    }
+    
+    private final long extractArcTemplateCode(long code) {
+    	return (code >> flagBits) & ((1 << numArcFeatBits)-1);
+    }
+    
+    private final long extractDistanceCode(long code) {
+    	return code & 15;
+    }
+    
+    private final long extractLabelCode(long code) {
+    	return (code >> 4) & ((1 << depNumBits)-1);
+    }
+    
+    private final void extractArcCodeP(long code, int[] x) {
+    	code = (code >> flagBits) >> numArcFeatBits;
+	    x[0] = (int) (code & ((1 << tagNumBits)-1));
+    }
+    
+    private final void extractArcCodePP(long code, int[] x) {
+    	code = (code >> flagBits) >> numArcFeatBits;
+	    x[1] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[0] = (int) (code & ((1 << tagNumBits)-1));
+    }
+    
+    private final void extractArcCodePPP(long code, int[] x) {
+    	code = (code >> flagBits) >> numArcFeatBits;
+	    x[2] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[1] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[0] = (int) (code & ((1 << tagNumBits)-1));
+    }
+    
+    private final void extractArcCodePPPP(long code, int[] x) {
+    	code = (code >> flagBits) >> numArcFeatBits;
+	    x[3] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[2] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[1] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[0] = (int) (code & ((1 << tagNumBits)-1));
+    }
+    
+    private final void extractArcCodePPPPP(long code, int[] x) {
+    	code = (code >> flagBits) >> numArcFeatBits;
+	    x[4] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[3] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[2] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[1] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[0] = (int) (code & ((1 << tagNumBits)-1));
+    }
+    
+    public void fillMultiwayParameters(LowRankParam tensor, Parameters params) {
+    	long[] codes = featureHashSet.toArray();
+    	//long[] codes = arcAlphabet.toArray();
+    	System.out.println(codes.length);
+    	int[] x = new int[4];
+    	ParameterNode pn = params.pn;
+		ParameterNode hpn = pn.node[0];
+		ParameterNode mpn = pn.node[1];
+		ParameterNode hcpn = pn.node[2];
+		ParameterNode mcpn = pn.node[3];
+		ParameterNode dpn = pn.node[4];
+		ParameterNode lpn = options.learnLabel ? pn.node[5] : null;
+    	
+    	for (long code : codes) {
+    		
+    		//int id = arcAlphabet.lookupIndex(code);
+    		int id = hashcode2int(code);
+    		if (id < 0) continue;
+    		
+    		int binDist = (int) extractDistanceCode(code);
+    		binDist = binDist == 0 ? 0 : dpn.featureBias[0] + (binDist - 1);
+    		
+    		int temp = (int) extractArcTemplateCode(code);
+    		
+    		int label = (int) extractLabelCode(code);
+    		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    		
+    		int head = 0, mod = 0, hc = 0, mc = 0;
+        	
+    		//code = createArcCodeP(Arc.ATTDIST, 0) | tid;
+    		if (temp == Arc.ATTDIST.ordinal()) {
+    			extractArcCodeP(code, x);
+    			head = 0;
+    			mod = 0;
+    			hc = 0;
+    			mc = 0;
+    		}
+        	
+        	//code = createArcCodeP(Arc.HP, HP) | tid;
+    		else if (temp == Arc.HP.ordinal()) {
+    			extractArcCodeP(code, x);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = 0;
+    			hc = 0;
+    			mc = 0;
+    		}
+
+        	//code = createArcCodeP(Arc.MP, MP) | tid;
+    		else if (temp == Arc.MP.ordinal()) {
+    			extractArcCodeP(code, x);
+    			head = 0;
+    			mod = mpn.featureBias[0] + (x[0] - 1);
+    			hc = 0;
+    			mc = 0;
+    		}
+
+        	//code = createArcCodePP(Arc.HP_MP, HP, MP) | tid;
+    		else if (temp == Arc.HP_MP.ordinal()) {
+    			extractArcCodePP(code, x);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[1] - 1);
+    			hc = 0;
+    			mc = 0;
+    		}
+
+        	//code = createArcCodePPP(Arc.HPp_HP_MP, HPp, HP, MP) | tid;
+    		else if (temp == Arc.HPp_HP_MP.ordinal()) {
+    			extractArcCodePPP(code, x);
+    			head = hpn.featureBias[0] + (x[1] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    			hc = hcpn.featureBias[0] + (x[0] - 1);
+    			mc = 0;
+    		}
+
+        	//code = createArcCodePPP(Arc.HP_HPn_MP, HP, HPn, MP) | tid;
+    		else if (temp == Arc.HP_HPn_MP.ordinal()) {
+    			extractArcCodePPP(code, x);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    			hc = hcpn.featureBias[1] + (x[1] - 1);
+    			mc = 0;
+    		}
+
+        	//code = createArcCodePPP(Arc.HP_MPp_MP, HP, MPp, MP) | tid;
+    		else if (temp == Arc.HP_MPp_MP.ordinal()) {
+    			extractArcCodePPP(code, x);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    			hc = 0;
+    			mc = mcpn.featureBias[0] + (x[1] - 1);
+    		}
+
+        	//code = createArcCodePPP(Arc.HP_MP_MPn, HP, MP, MPn) | tid;
+    		else if (temp == Arc.HP_MP_MPn.ordinal()) {
+    			extractArcCodePPP(code, x);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[1] - 1);
+    			hc = 0;
+    			mc = mcpn.featureBias[1] + (x[2] - 1);
+    		}
+
+        	//code = createArcCodePPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn) | tid;
+    		else if (temp == Arc.HPp_HP_MP_MPn.ordinal()) {
+    			extractArcCodePPPP(code, x);
+    			head = hpn.featureBias[0] + (x[1] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    			hc = hcpn.featureBias[0] + (x[0] - 1);
+    			mc = mcpn.featureBias[1] + (x[3] - 1);
+    		}
+
+        	//code = createArcCodePPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn) | tid;
+    		else if (temp == Arc.HP_HPn_MP_MPn.ordinal()) {
+    			extractArcCodePPPP(code, x);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    			hc = hcpn.featureBias[1] + (x[1] - 1);
+    			mc = mcpn.featureBias[1] + (x[3] - 1);
+    		}
+
+        	//code = createArcCodePPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP) | tid;
+    		else if (temp == Arc.HP_HPn_MPp_MP.ordinal()) {
+    			extractArcCodePPPP(code, x);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[3] - 1);
+    			hc = hcpn.featureBias[1] + (x[1] - 1);
+    			mc = mcpn.featureBias[0] + (x[2] - 1);
+    		}
+
+        	//code = createArcCodePPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP) | tid;
+    		else if (temp == Arc.HPp_HP_MPp_MP.ordinal()) {
+    			extractArcCodePPPP(code, x);
+    			head = hpn.featureBias[0] + (x[1] - 1);
+    			mod = mpn.featureBias[0] + (x[3] - 1);
+    			hc = hcpn.featureBias[0] + (x[0] - 1);
+    			mc = mcpn.featureBias[0] + (x[2] - 1);
+    		}
+    		
+    		else {
+    			continue;
+    		}
+
+   			double value = params.params[id];
+   			//if (hpn.isActive[head] && mpn.isActive[mod] && hcpn.isActive[hc] && mcpn.isActive[mc] && dpn.isActive[binDist]
+   			//		&& (!options.learnLabel || lpn.isActive[label]))
+   			Utils.Assert(hpn.isActive[head]);
+   			Utils.Assert(mpn.isActive[mod]);
+   			Utils.Assert(hcpn.isActive[hc]);
+   			Utils.Assert(mcpn.isActive[mc]);
+   			Utils.Assert(dpn.isActive[binDist]);
+   			Utils.Assert(!options.learnLabel || lpn.isActive[label]);
+   			if (Math.abs(value) > 1e-8) {
+   				label = options.learnLabel ? label : -1;
+   				tensor.putEntry(head, mod, hc, mc, binDist, label, value);
+   			}
+    	}
+    }
+
+    public void fillThreewayParameters(LowRankParam tensor, Parameters params) {
+    	long[] codes = featureHashSet.toArray();
+    					//arcAlphabet.toArray();
+    	System.out.println(codes.length);
+    	int[] x = new int[4];
+    	ParameterNode pn = params.pn;
+    	ParameterNode hpn = pn.node[0];
+    	ParameterNode mpn = pn.node[1];
+    	ParameterNode dpn = pn.node[2];
+    	ParameterNode lpn = options.learnLabel ? pn.node[3] : null;
+    	
+    	for (long code : codes) {
+    		
+    		//int id = arcAlphabet.lookupIndex(code);
+    		int id = hashcode2int(code);
+    		if (id < 0) continue;
+    		
+    		int binDist = (int) extractDistanceCode(code);
+    		binDist = binDist == 0 ? 0 : dpn.featureBias[0] + (binDist - 1);
+    		
+    		int temp = (int) extractArcTemplateCode(code);
+    		
+    		int label = (int) extractLabelCode(code);
+    		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    		
+    		int head = 0, mod = 0;
+        	
+    		//code = createArcCodeP(Arc.ATTDIST, 0) | tid;
+    		if (temp == Arc.ATTDIST.ordinal()) {
+    			extractArcCodeP(code, x);
+    			head = 0;
+    			mod = 0;
+    		}
+        	
+        	//code = createArcCodeP(Arc.HP, HP) | tid;
+    		else if (temp == Arc.HP.ordinal()) {
+    			extractArcCodeP(code, x);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = 0;
+    		}
+
+        	//code = createArcCodeP(Arc.MP, MP) | tid;
+    		else if (temp == Arc.MP.ordinal()) {
+    			extractArcCodeP(code, x);
+    			head = 0;
+    			mod = mpn.featureBias[0] + (x[0] - 1);
+    		}
+
+        	//code = createArcCodePP(Arc.HP_MP, HP, MP) | tid;
+    		else if (temp == Arc.HP_MP.ordinal()) {
+    			extractArcCodePP(code, x);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[1] - 1);
+    		}
+
+        	//code = createArcCodePPP(Arc.HPp_HP_MP, HPp, HP, MP) | tid;
+    		else if (temp == Arc.HPp_HP_MP.ordinal()) {
+    			extractArcCodePPP(code, x);
+    			head = hpn.featureBias[3] + getPPCode(x[0] - 1, x[1] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    		}
+
+        	//code = createArcCodePPP(Arc.HP_HPn_MP, HP, HPn, MP) | tid;
+    		else if (temp == Arc.HP_HPn_MP.ordinal()) {
+    			extractArcCodePPP(code, x);
+    			head = hpn.featureBias[4] + getPPCode(x[0] - 1, x[1] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    		}
+
+        	//code = createArcCodePPP(Arc.HP_MPp_MP, HP, MPp, MP) | tid;
+    		else if (temp == Arc.HP_MPp_MP.ordinal()) {
+    			extractArcCodePPP(code, x);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[3] + getPPCode(x[1] - 1, x[2] - 1);
+    		}
+
+        	//code = createArcCodePPP(Arc.HP_MP_MPn, HP, MP, MPn) | tid;
+    		else if (temp == Arc.HP_MP_MPn.ordinal()) {
+    			extractArcCodePPP(code, x);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[4] + getPPCode(x[1] - 1, x[2] - 1);
+    		}
+
+        	//code = createArcCodePPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn) | tid;
+    		else if (temp == Arc.HPp_HP_MP_MPn.ordinal()) {
+    			extractArcCodePPPP(code, x);
+    			head = hpn.featureBias[3] + getPPCode(x[0] - 1, x[1] - 1);
+    			mod = mpn.featureBias[4] + getPPCode(x[2] - 1, x[3] - 1);
+    		}
+
+        	//code = createArcCodePPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn) | tid;
+    		else if (temp == Arc.HP_HPn_MP_MPn.ordinal()) {
+    			extractArcCodePPPP(code, x);
+    			head = hpn.featureBias[4] + getPPCode(x[0] - 1, x[1] - 1);
+    			mod = mpn.featureBias[4] + getPPCode(x[2] - 1, x[3] - 1);
+    		}
+
+        	//code = createArcCodePPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP) | tid;
+    		else if (temp == Arc.HP_HPn_MPp_MP.ordinal()) {
+    			extractArcCodePPPP(code, x);
+    			head = hpn.featureBias[4] + getPPCode(x[0] - 1, x[1] - 1);
+    			mod = mpn.featureBias[3] + getPPCode(x[2] - 1, x[3] - 1);
+    		}
+
+        	//code = createArcCodePPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP) | tid;
+    		else if (temp == Arc.HPp_HP_MPp_MP.ordinal()) {
+    			extractArcCodePPPP(code, x);
+    			head = hpn.featureBias[3] + getPPCode(x[0] - 1, x[1] - 1);
+    			mod = mpn.featureBias[3] + getPPCode(x[2] - 1, x[3] - 1);
+    		}
+    		
+    		else {
+    			continue;
+    		}
+
+   			double value = params.params[id];
+   			//if (hpn.isActive[head] && mpn.isActive[mod] && dpn.isActive[binDist]
+   			//		&& (!options.learnLabel || lpn.isActive[label])) {
+   			Utils.Assert(hpn.isActive[head]);
+   			Utils.Assert(mpn.isActive[mod]);
+   			Utils.Assert(dpn.isActive[binDist]);
+   			Utils.Assert(!options.learnLabel || lpn.isActive[label]);
+   			if (Math.abs(value) > 1e-8) {
+   				label = options.learnLabel ? label : -1;
+   				tensor.putEntry(head, mod, binDist, label, value);
+   			}
+    	}
+    }
+
+    public void fillHierarchichalParameters(LowRankParam tensor, Parameters params) {
+    	long[] codes = featureHashSet.toArray();
+    					//arcAlphabet.toArray();
+    	System.out.println(codes.length);
+    	int[] x = new int[5];
+    	ParameterNode delexical = options.lexical ? params.pn.node[1] : params.pn;
+		ParameterNode hcpn = delexical.node[0];
+		ParameterNode mcpn = delexical.node[1];
+		ParameterNode apn = options.learnLabel ? delexical.node[2] : null;
+		ParameterNode lpn = options.learnLabel ? apn.node[0] : null;
+		ParameterNode tpn = options.learnLabel ? apn.node[1] : delexical.node[2];
+		ParameterNode hpn = tpn.node[0];
+		ParameterNode mpn = tpn.node[1];
+		ParameterNode dpn = tpn.node[2];
+		int d = ParameterNode.d;
+
+    	for (long code : codes) {
+    		
+    		//int id = arcAlphabet.lookupIndex(code);
+    		int id = hashcode2int(code);
+    		if (id < 0) continue;
+    		
+    		double value = params.params[id];
+
+    		int binDist = (int) extractDistanceCode(code);
+    		Utils.Assert(binDist >= 0);
+    		
+    		int temp = (int) extractArcTemplateCode(code);
+    		
+    		int label = (int) extractLabelCode(code);
+    		Utils.Assert(label >= 0);
+    		
+    		int head = 0, mod = 0, hc = 0, mc = 0, svo = 0, t = 0;
+        	
+    		//code = createArcCodePP(Arc.ATTDIST, 0, cf) | tid;
+    		if (temp == Arc.ATTDIST.ordinal()) {
+    			extractArcCodePP(code, x);
+    			Utils.Assert(x[1] > 0 && x[0] == 0);
+    			head = 0;
+    			mod = 0;
+    			//hc = hcpn.featureBias[0] + (x[1] - 1);
+    			//mc = mcpn.featureBias[0] + (x[1] - 1);
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[1] - 1)
+    					: dpn.featureBias[3] + (x[1] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+        	
+        	//code = createArcCodePP(Arc.HP, HP, cf) | tid;
+    		else if (temp == Arc.HP.ordinal()) {
+    			extractArcCodePP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = 0;
+    			//hc = hcpn.featureBias[0] + (x[1] - 1);
+    			//mc = mcpn.featureBias[0] + (x[1] - 1);
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[1] - 1)
+    					: dpn.featureBias[3] + (x[1] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+        	//code = createArcCodePP(Arc.MP, MP, cf) | tid;
+    		else if (temp == Arc.MP.ordinal()) {
+    			extractArcCodePP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0);
+    			head = 0;
+    			mod = mpn.featureBias[0] + (x[0] - 1);
+    			//hc = hcpn.featureBias[0] + (x[1] - 1);
+    			//mc = mcpn.featureBias[0] + (x[1] - 1);
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[1] - 1)
+    					: dpn.featureBias[3] + (x[1] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+        	//code = createArcCodePPP(Arc.HP_MP, HP, MP, cf) | tid;
+    		else if (temp == Arc.HP_MP.ordinal()) {
+    			extractArcCodePPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[1] - 1);
+    			//hc = hcpn.featureBias[0] + (x[2] - 1);
+    			//mc = mcpn.featureBias[0] + (x[2] - 1);
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[2] - 1)
+    					: dpn.featureBias[3] + (x[2] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+        	//code = createArcCodePPPP(Arc.HPp_HP_MP, HPp, HP, MP, cf) | tid;
+    		else if (temp == Arc.HPp_HP_MP.ordinal()) {
+    			extractArcCodePPPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0 && x[3] > 0);
+    			head = hpn.featureBias[0] + (x[1] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    			hc = hcpn.featureBias[2] + (x[3] - 1) * posNum + (x[0] - 1);
+    			//mc = mcpn.featureBias[0] + (x[3] - 1);
+    			mc = 0;
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[3] - 1)
+    					: dpn.featureBias[3] + (x[3] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+        	//code = createArcCodePPPP(Arc.HP_HPn_MP, HP, HPn, MP, cf) | tid;
+    		else if (temp == Arc.HP_HPn_MP.ordinal()) {
+    			extractArcCodePPPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0 && x[3] > 0);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    			hc = hcpn.featureBias[4] + (x[3] - 1) * posNum + (x[1] - 1);
+    			//mc = mcpn.featureBias[0] + (x[3] - 1);
+    			mc = 0;
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[3] - 1)
+    					: dpn.featureBias[3] + (x[3] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+        	//code = createArcCodePPPP(Arc.HP_MPp_MP, HP, MPp, MP, cf) | tid;
+    		else if (temp == Arc.HP_MPp_MP.ordinal()) {
+    			extractArcCodePPPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0 && x[3] > 0);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    			//hc = hcpn.featureBias[0] + (x[3] - 1);
+    			hc = 0;
+    			mc = mcpn.featureBias[2] + (x[3] - 1) * posNum + (x[1] - 1);
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[3] - 1)
+    					: dpn.featureBias[3] + (x[3] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+        	//code = createArcCodePPPP(Arc.HP_MP_MPn, HP, MP, MPn, cf) | tid;
+    		else if (temp == Arc.HP_MP_MPn.ordinal()) {
+    			extractArcCodePPPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0 && x[3] > 0);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[1] - 1);
+    			//hc = hcpn.featureBias[0] + (x[3] - 1);
+    			hc = 0;
+    			mc = mcpn.featureBias[4] + (x[3] - 1) * posNum + (x[2] - 1);
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[3] - 1)
+    					: dpn.featureBias[3] + (x[3] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+        	//code = createArcCodePPPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn, cf) | tid;
+    		else if (temp == Arc.HPp_HP_MP_MPn.ordinal()) {
+    			extractArcCodePPPPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0 && x[3] > 0 && x[4] > 0);
+    			head = hpn.featureBias[0] + (x[1] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    			hc = hcpn.featureBias[2] + (x[4] - 1) * posNum + (x[0] - 1);
+    			mc = mcpn.featureBias[4] + (x[4] - 1) * posNum + (x[3] - 1);
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[4] - 1)
+    					: dpn.featureBias[3] + (x[4] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+        	//code = createArcCodePPPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn, cf) | tid;
+    		else if (temp == Arc.HP_HPn_MP_MPn.ordinal()) {
+    			extractArcCodePPPPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0 && x[3] > 0 && x[4] > 0);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    			hc = hcpn.featureBias[4] + (x[4] - 1) * posNum + (x[1] - 1);
+    			mc = mcpn.featureBias[4] + (x[4] - 1) * posNum + (x[3] - 1);
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[4] - 1)
+    					: dpn.featureBias[3] + (x[4] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+        	//code = createArcCodePPPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP, cf) | tid;
+    		else if (temp == Arc.HP_HPn_MPp_MP.ordinal()) {
+    			extractArcCodePPPPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0 && x[3] > 0 && x[4] > 0);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[3] - 1);
+    			hc = hcpn.featureBias[4] + (x[4] - 1) * posNum + (x[1] - 1);
+    			mc = mcpn.featureBias[2] + (x[4] - 1) * posNum + (x[2] - 1);
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[4] - 1)
+    					: dpn.featureBias[3] + (x[4] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+        	//code = createArcCodePPPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP, cf) | tid;
+    		else if (temp == Arc.HPp_HP_MPp_MP.ordinal()) {
+    			extractArcCodePPPPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0 && x[3] > 0 && x[4] > 0);
+    			head = hpn.featureBias[0] + (x[1] - 1);
+    			mod = mpn.featureBias[0] + (x[3] - 1);
+    			hc = hcpn.featureBias[2] + (x[4] - 1) * posNum + (x[0] - 1);
+    			mc = mcpn.featureBias[2] + (x[4] - 1) * posNum + (x[2] - 1);
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[4] - 1)
+    					: dpn.featureBias[3] + (x[4] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+    		
+        	//code = createArcCodeP(Arc.DIST, 0) | tid;
+    		else if (temp == Arc.DIST.ordinal()) {
+    			extractArcCodeP(code, x);
+    			Utils.Assert(x[0] == 0);
+    			Utils.Assert(binDist > 0 && binDist - 1 < d);
+    			head = 0;
+    			mod = 0;
+    			hc = 0;
+    			mc = 0;
+    			binDist = dpn.featureBias[2] + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+        	
+        	//code = createArcCodeP(Arc.B_HP, HP) | tid;
+    		else if (temp == Arc.B_HP.ordinal()) {
+    			extractArcCodeP(code, x);
+    			Utils.Assert(x[0] > 0);
+    			Utils.Assert(binDist - 1 < d);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = 0;
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? 0 : dpn.featureBias[2] + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+        	//code = createArcCodeP(Arc.B_MP, MP) | tid;
+    		else if (temp == Arc.B_MP.ordinal()) {
+    			extractArcCodeP(code, x);
+    			Utils.Assert(x[0] > 0);
+    			Utils.Assert(binDist - 1 < d);
+    			head = 0;
+    			mod = mpn.featureBias[0] + (x[0] - 1);
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? 0 : dpn.featureBias[2] + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+        	//code = createArcCodePP(Arc.B_HP_MP, HP, MP) | tid;
+    		else if (temp == Arc.B_HP_MP.ordinal()) {
+    			extractArcCodePP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0);
+    			Utils.Assert(binDist - 1 < d);
+    			head = hpn.featureBias[0] + (x[0] - 1);
+    			mod = mpn.featureBias[0] + (x[1] - 1);
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? 0 : dpn.featureBias[2] + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    		}
+
+		    //code = createArcCodeP(Arc.SV_NOUN, feature[TypoFeatureType.SV.ordinal()] + 1) | tid;
+    		else if (temp == Arc.SV_NOUN.ordinal()) {
+    			extractArcCodeP(code, x);
+    			Utils.Assert(x[0] > 0);
+    			//Utils.Assert(binDist - 1 < 2);
+    			Utils.Assert(label - 1 == LABEL_SBJ || label - 1 == LABEL_SBJPASS);
+    			int v = x[0] - 1;
+    			int dir = binDist - 1;
+    			int offset = 2 * d * 2;
+    			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.SV));
+    			head = -1;
+    			mod = -1;
+    			hc = 0;
+    			mc = 0;
+    			binDist = -1;
+    			svo = v * offset + dir * 2 + (label - 1 == LABEL_SBJ ? 0 : 1);
+    			//System.out.println("SV_NOUN: " + svo + " " + value);
+    			t = -1;
+    			label = -1;
+    		}
+    		
+	    	//code = createArcCodeP(Arc.SV_PRON, feature[TypoFeatureType.SV.ordinal()] + 1) | tid;
+    		else if (temp == Arc.SV_PRON.ordinal()) {
+    			extractArcCodeP(code, x);
+    			Utils.Assert(x[0] > 0);
+    			//Utils.Assert(binDist - 1 < 2);
+    			Utils.Assert(label - 1 == LABEL_SBJ || label - 1 == LABEL_SBJPASS);
+    			int v = x[0] - 1;
+    			int dir = binDist - 1;
+    			int offset = 2 * d * 2;
+    			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.SV));
+    			head = -1;
+    			mod = -1;
+    			hc = 0;
+    			mc = 0;
+    			binDist = -1;
+    			svo = apn.featureBias[0] + v * offset + dir * 2 + (label - 1 == LABEL_SBJ ? 0 : 1);
+    			//System.out.println("SV_PRON: " + svo + " " + value);
+    			t = -1;
+    			label = -1;
+    		}
+    	    	
+	    	//code = createArcCodeP(Arc.VO_NOUN, feature[TypoFeatureType.VO.ordinal()] + 1) | tid;
+    		else if (temp == Arc.VO_NOUN.ordinal()) {
+    			extractArcCodeP(code, x);
+    			Utils.Assert(x[0] > 0);
+    			//Utils.Assert(binDist - 1 < 2);
+    			Utils.Assert(label - 1 == LABEL_DOBJ || label - 1 == LABEL_IOBJ);
+    			int v = x[0] - 1;
+    			int dir = binDist - 1;
+    			int offset = 2 * d * 2;
+    			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.VO));
+    			head = -1;
+    			mod = -1;
+    			hc = 0;
+    			mc = 0;
+    			binDist = -1;
+    			svo = apn.featureBias[1] + v * offset + dir * 2 + (label - 1 == LABEL_DOBJ ? 0 : 1);
+    			//System.out.println("VO_NOUN: " + svo + " " + value);
+    			t = -1;
+    			label = -1;
+    		}
+    		
+	    	//code = createArcCodeP(Arc.VO_PRON, feature[TypoFeatureType.VO.ordinal()] + 1) | tid;
+    		else if (temp == Arc.VO_PRON.ordinal()) {
+    			extractArcCodeP(code, x);
+    			Utils.Assert(x[0] > 0);
+    			//Utils.Assert(binDist - 1 < 2);
+    			Utils.Assert(label - 1 == LABEL_DOBJ || label - 1 == LABEL_IOBJ);
+    			int v = x[0] - 1;
+    			int dir = binDist - 1;
+    			int offset = 2 * d * 2;
+    			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.VO));
+    			head = -1;
+    			mod = -1;
+    			hc = 0;
+    			mc = 0;
+    			binDist = -1;
+    			svo = apn.featureBias[2] + v * offset + dir * 2 + (label - 1 == LABEL_DOBJ ? 0 : 1);
+    			//System.out.println("VO_PRON: " + svo + " " + value);
+    			t = -1;
+    			label = -1;
+    		}
+    		
+		    //code = createArcCodeP(Arc.ADP_NOUN, feature[TypoFeatureType.Prep.ordinal()] + 1) | tid;
+    		else if (temp == Arc.ADP_NOUN.ordinal()) {
+    			extractArcCodeP(code, x);
+    			Utils.Assert(x[0] > 0);
+    			//Utils.Assert(binDist - 1 < 2);
+    			int v = x[0] - 1;
+    			int dir = binDist - 1;
+    			int offset = 2 * d;
+    			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.Prep));
+    			head = -1;
+    			mod = -1;
+    			hc = 0;
+    			mc = 0;
+    			binDist = -1;
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+        		svo = -1;
+    			t = v * offset + dir;
+    			//System.out.println("PREP_NOUN: " + t + " " + value);
+    		}
+    		    	
+		    //code = createArcCodeP(Arc.ADP_PRON, feature[TypoFeatureType.Prep.ordinal()] + 1) | tid;
+    		else if (temp == Arc.ADP_PRON.ordinal()) {
+    			extractArcCodeP(code, x);
+    			Utils.Assert(x[0] > 0);
+    			//Utils.Assert(binDist - 1 < 2);
+    			int v = x[0] - 1;
+    			int dir = binDist - 1;
+    			int offset = 2 * d;
+    			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.Prep));
+    			head = -1;
+    			mod = -1;
+    			hc = 0;
+    			mc = 0;
+    			binDist = -1;
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+        		svo = -1;
+    			t = tpn.featureBias[0] + v * offset + dir;
+    			//System.out.println("PREP_PRON: " + t + " " + value);
+    		}
+    		    	
+		    //code = createArcCodeP(Arc.GEN, feature[TypoFeatureType.Gen.ordinal()] + 1) | tid;
+    		else if (temp == Arc.GEN.ordinal()) {
+    			extractArcCodeP(code, x);
+    			Utils.Assert(x[0] > 0);
+    			//Utils.Assert(binDist - 1 < 2);
+    			int v = x[0] - 1;
+    			int dir = binDist - 1;
+    			int offset = 2 * d;
+    			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.Gen));
+    			head = -1;
+    			mod = -1;
+    			hc = 0;
+    			mc = 0;
+    			binDist = -1;
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+        		svo = -1;
+    			t = tpn.featureBias[1] + v * offset + dir;
+    			//System.out.println("GEN: " + t + " " + value);
+    		}
+    		    	
+		    //code = createArcCodeP(Arc.ADJ, feature[TypoFeatureType.Adj.ordinal()] + 1) | tid;
+    		else if (temp == Arc.ADJ.ordinal()) {
+    			extractArcCodeP(code, x);
+    			Utils.Assert(x[0] > 0);
+    			//Utils.Assert(binDist - 1 < 2);
+    			int v = x[0] - 1;
+    			int dir = binDist - 1;
+    			int offset = 2 * d;
+    			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.Adj));
+    			head = -1;
+    			mod = -1;
+    			hc = 0;
+    			mc = 0;
+    			binDist = -1;
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+        		svo = -1;
+    			t = tpn.featureBias[2] + v * offset + dir;
+    			//System.out.println("ADJ: " + t + " " + value);
+    		}
+
+    		else {
+    			continue;
+    		}
+
+   			Utils.Assert(head < 0 || hpn.isActive[head]); 
+   			Utils.Assert(mod < 0 || mpn.isActive[mod]); 
+   			Utils.Assert(hc < 0 || hcpn.isActive[hc]); 
+   			Utils.Assert(mc < 0 || mcpn.isActive[mc]); 
+   			Utils.Assert(binDist < 0 || dpn.isActive[binDist]); 
+   			Utils.Assert(label < 0 || !options.learnLabel || lpn.isActive[label]);
+   			Utils.Assert(t < 0 || tpn.isActive[t]);
+   			Utils.Assert(svo < 0 || apn.isActive[svo]);
+   			label = options.learnLabel ? label : -1;
+   			svo = options.learnLabel ? svo : -1;
+   			//if (svo >= 0)
+   			//	System.out.println("aaa");
+   			if (Math.abs(value) > 1e-8)
+   				tensor.putEntry(head, mod, hc, mc, binDist, label, svo, t, value);
+    	}
+    }
 }

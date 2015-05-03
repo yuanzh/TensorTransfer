@@ -10,12 +10,12 @@ import utils.Utils;
 
 public class MultiwayFeatureNode extends FeatureNode {
 
-	public FeatureDataItem[] headContext;
-	public FeatureDataItem[] modContext;
-	public FeatureDataItem[] head;
-	public FeatureDataItem[] mod;
-	public FeatureDataItem[] dd;
-	public FeatureDataItem[] label;
+	public FeatureDataItem[] headContextData;
+	public FeatureDataItem[] modContextData;
+	public FeatureDataItem[] headData;
+	public FeatureDataItem[] modData;
+	public FeatureDataItem[] ddData;
+	public FeatureDataItem[] labelData;
 	
 	public MultiwayFeatureNode(Options options, DependencyInstance inst, TensorTransfer model) {
 		this.inst = inst;
@@ -30,10 +30,10 @@ public class MultiwayFeatureNode extends FeatureNode {
 		int rank = pn.node[0].rank;
 		
 		// POS
-		headContext = new FeatureDataItem[n];
-		modContext = new FeatureDataItem[n];
-		head = new FeatureDataItem[n];
-		mod = new FeatureDataItem[n];
+		headContextData = new FeatureDataItem[n];
+		modContextData = new FeatureDataItem[n];
+		headData = new FeatureDataItem[n];
+		modData = new FeatureDataItem[n];
 		for (int i = 0; i < n; ++i) {
 			int p = inst.postagids[i];
 			int pp = i > 0 ? inst.postagids[i - 1] : pipe.ff.TOKEN_START;
@@ -49,8 +49,8 @@ public class MultiwayFeatureNode extends FeatureNode {
 				headScore[r] = fv.dotProduct(hpn.param[r]);
 				modScore[r] = fv.dotProduct(mpn.param[r]);
 			}
-			head[i] = new FeatureDataItem(fv, headScore);
-			mod[i] = new FeatureDataItem(fv, modScore);
+			headData[i] = new FeatureDataItem(fv, headScore);
+			modData[i] = new FeatureDataItem(fv, modScore);
 
 			hpn = pn.node[2];
 			mpn = pn.node[3];
@@ -62,13 +62,13 @@ public class MultiwayFeatureNode extends FeatureNode {
 				headScore[r] = fv.dotProduct(hpn.param[r]);
 				modScore[r] = fv.dotProduct(mpn.param[r]);
 			}
-			headContext[i] = new FeatureDataItem(fv, headScore);
-			modContext[i] = new FeatureDataItem(fv, modScore);
+			headContextData[i] = new FeatureDataItem(fv, headScore);
+			modContextData[i] = new FeatureDataItem(fv, modScore);
 		}
 		
 		// direction and distance
 		int d = ParameterNode.d;
-		dd = new FeatureDataItem[2 * d];
+		ddData = new FeatureDataItem[2 * d];
 		ParameterNode dpn = pn.node[4];
 		Utils.Assert(rank == dpn.rank);
 		for (int i = 0; i < 2 * d; ++i) {
@@ -77,13 +77,13 @@ public class MultiwayFeatureNode extends FeatureNode {
 			for (int r = 0; r < rank; ++r) {
 				score[r] = fv.dotProduct(dpn.param[r]);
 			}
-			dd[i] = new FeatureDataItem(fv, score);
+			ddData[i] = new FeatureDataItem(fv, score);
 		}
 		
 		// label
 		if (options.learnLabel) {
 			int labelNum = pn.labelNum;
-			label = new FeatureDataItem[labelNum];
+			labelData = new FeatureDataItem[labelNum];
 			ParameterNode lpn = pn.node[5];
 			Utils.Assert(rank == lpn.rank);
 			for (int i = 0; i < labelNum; ++i) {
@@ -92,21 +92,21 @@ public class MultiwayFeatureNode extends FeatureNode {
 				for (int r = 0; r < rank; ++r) {
 					score[r] = fv.dotProduct(lpn.param[r]);
 				}
-				label[i] = new FeatureDataItem(fv, score);
+				labelData[i] = new FeatureDataItem(fv, score);
 			}
 		}
 	}
 
 	@Override
-	public double getScore(int h, int m, int l) {
-		double[] headScore = head[h].score;
-		double[] modScore = mod[m].score;
-		double[] hcScore = headContext[h].score;
-		double[] mcScore = modContext[m].score;
-		double[] ddScore = dd[pipe.ff.getBinnedDistance(h - m)].score;
+	public double getScore(int h, int m, int label) {
+		double[] headScore = headData[h].score;
+		double[] modScore = modData[m].score;
+		double[] hcScore = headContextData[h].score;
+		double[] mcScore = modContextData[m].score;
+		double[] ddScore = ddData[pipe.ff.getBinnedDistance(h - m)].score;
 		
 		if (options.learnLabel) {
-			double[] labelScore = label[l].score;
+			double[] labelScore = labelData[label].score;
 			return Utils.sum(Utils.dot(headScore, modScore, hcScore, mcScore, ddScore, labelScore));
 		}
 		else {
@@ -115,15 +115,15 @@ public class MultiwayFeatureNode extends FeatureNode {
 	}
 
 	@Override
-	public double addGradient(int h, int m, int l, double val, ParameterNode pn) {
+	public double addGradient(int h, int m, int label, double val, ParameterNode pn) {
 		// assume that dfv is already cleaned
 		
-		double[] headScore = head[h].score;
-		double[] modScore = mod[m].score;
-		double[] hcScore = headContext[h].score;
-		double[] mcScore = modContext[m].score;
-		double[] ddScore = dd[pipe.ff.getBinnedDistance(h - m)].score;
-		double[] lScore = options.learnLabel ? label[l].score : null;
+		double[] headScore = headData[h].score;
+		double[] modScore = modData[m].score;
+		double[] hcScore = headContextData[h].score;
+		double[] mcScore = modContextData[m].score;
+		double[] ddScore = ddData[pipe.ff.getBinnedDistance(h - m)].score;
+		double[] lScore = options.learnLabel ? labelData[label].score : null;
 
 		ParameterNode hpn = pn.node[0];
 		ParameterNode mpn = pn.node[1];
@@ -143,7 +143,7 @@ public class MultiwayFeatureNode extends FeatureNode {
 		if (options.learnLabel)
 			g = Utils.dot(g, lScore);
 		for (int r = 0; r < hpn.rank; ++r) {
-			hpn.dFV[r].addEntries(head[h].fv, g[r]);
+			hpn.dFV[r].addEntries(headData[h].fv, g[r]);
 		}
 		
 		// update m
@@ -151,7 +151,7 @@ public class MultiwayFeatureNode extends FeatureNode {
 		if (options.learnLabel)
 			g = Utils.dot(g, lScore);
 		for (int r = 0; r < mpn.rank; ++r) {
-			mpn.dFV[r].addEntries(mod[m].fv, g[r]);
+			mpn.dFV[r].addEntries(modData[m].fv, g[r]);
 		}
 		
 		// update hc
@@ -159,7 +159,7 @@ public class MultiwayFeatureNode extends FeatureNode {
 		if (options.learnLabel)
 			g = Utils.dot(g, lScore);
 		for (int r = 0; r < hcpn.rank; ++r) {
-			hcpn.dFV[r].addEntries(headContext[h].fv, g[r]);
+			hcpn.dFV[r].addEntries(headContextData[h].fv, g[r]);
 		}
 		
 		// update mc
@@ -167,7 +167,7 @@ public class MultiwayFeatureNode extends FeatureNode {
 		if (options.learnLabel)
 			g = Utils.dot(g, lScore);
 		for (int r = 0; r < mcpn.rank; ++r) {
-			mcpn.dFV[r].addEntries(modContext[m].fv, g[r]);
+			mcpn.dFV[r].addEntries(modContextData[m].fv, g[r]);
 		}
 		
 		// update dd
@@ -175,19 +175,19 @@ public class MultiwayFeatureNode extends FeatureNode {
 		if (options.learnLabel)
 			g = Utils.dot(g, lScore);
 		for (int r = 0; r < dpn.rank; ++r) {
-			dpn.dFV[r].addEntries(dd[binDist].fv, g[r]);
+			dpn.dFV[r].addEntries(ddData[binDist].fv, g[r]);
 		}
 		
 		// update label
 		if (options.learnLabel) {
 			g = Utils.dot(v, headScore, modScore, hcScore, mcScore, ddScore);
 			for (int r = 0; r < lpn.rank; ++r) {
-				lpn.dFV[r].addEntries(label[l].fv, g[r]);
+				lpn.dFV[r].addEntries(labelData[label].fv, g[r]);
 			}
 		}
 		
 		if (options.learnLabel) {
-			double[] labelScore = label[l].score;
+			double[] labelScore = labelData[label].score;
 			return Utils.sum(Utils.dot(headScore, modScore, hcScore, mcScore, ddScore, labelScore));
 		}
 		else {

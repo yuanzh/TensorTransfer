@@ -73,7 +73,18 @@ public final class Utils {
 	
 	public static void normalize(double[] vec) 
 	{
-		double coeff = 1.0 / Math.sqrt(squaredSum(vec));
+		double n = Math.sqrt(squaredSum(vec));
+		Utils.Assert(n > 0.0);
+		double coeff = 1.0 / n;
+		for (int i = 0, N = vec.length; i < N; ++i)
+			vec[i] *= coeff;
+	}
+	
+	public static void normalize(double[] vec, double scale) 
+	{
+		double n = Math.sqrt(squaredSum(vec));
+		Utils.Assert(n > 0.0);
+		double coeff = scale / n;
 		for (int i = 0, N = vec.length; i < N; ++i)
 			vec[i] *= coeff;
 	}
@@ -122,6 +133,15 @@ public final class Utils {
 		double sum = 0.0;
 		for (int i = 0, L = vec.length; i < L; ++i)
 			sum += vec[i];
+		return sum;
+	}
+	
+	public static double dotsum(double[] vec1, double[] vec2)
+	{
+		double sum = 0.0;
+		for (int i = 0, N = vec1.length; i < N; ++i) {
+			sum += vec1[i] * vec2[i];
+		}
 		return sum;
 	}
 	

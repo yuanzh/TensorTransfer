@@ -1,11 +1,18 @@
 package parser;
 
-import java.io.IOException;
+import java.io.*;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
+import parser.Options.FeatureMode;
+import parser.Options.TensorMode;
 import parser.Options.UpdateMode;
 import parser.decoding.DependencyDecoder;
+import parser.feature.FeatureRepo;
 import parser.io.DependencyReader;
+import parser.tensor.LowRankParam;
 import parser.tensor.ParameterNode;
+import utils.TypologicalInfo;
 import utils.Utils;
 
 public class TensorTransfer {
@@ -17,7 +24,72 @@ public class TensorTransfer {
     public void train(DependencyInstance[] lstTrain) throws IOException, CloneNotSupportedException {
     	long start = 0, end = 0;
     	
-		System.out.println("=============================================");
+        if (options.R > 0 && options.gamma < 1 && options.initTensorWithPretrain) {
+
+        	Options optionsBak = (Options) options.clone();
+        	options.featureMode= FeatureMode.Basic;
+        	options.R = 0;
+        	options.gamma = 1.0;
+        	options.maxNumIters = 1;
+        	options.AdaAlpha = 0.01;
+        	options.MIRAC = 0.01;
+        	parameters.gamma = 1.0;
+        	parameters.adaAlpha = 0.01;
+        	parameters.C = 0.01;
+        	parameters.pn.setGamma(1.0);
+        	parameters.pn.setAdaAlpha(0.01);
+        	parameters.pn.setMIRAC(0.01);
+    		System.out.println("=============================================");
+    		System.out.printf(" Pre-training:%n");
+    		System.out.println("=============================================");
+    		
+    		start = System.currentTimeMillis();
+
+    		System.out.println("Running " + options.updateMode.name() + " ... ");
+    		trainIter(lstTrain, true);
+    		System.out.println();
+    		
+    		System.out.println("Init tensor ... ");
+    		LowRankParam tensor = new LowRankParam(parameters.pn);
+    		if (options.tensorMode == TensorMode.Threeway) {
+    			pipe.ff.fillThreewayParameters(tensor, parameters);
+        		tensor.decomposeThreeway();
+    		}
+    		else if (options.tensorMode == TensorMode.Multiway) {
+    			pipe.ff.fillMultiwayParameters(tensor, parameters);
+    			tensor.decomposeMultiway();
+    		}
+    		else if (options.tensorMode == TensorMode.Hierarchical) {
+    			pipe.ff.fillHierarchichalParameters(tensor, parameters);
+    			tensor.decomposeHierarchicalway();
+    		}
+    		else
+    			Utils.ThrowException("not implemented yet");
+    		
+            System.out.println();
+    		end = System.currentTimeMillis();
+    		
+    		options.featureMode = optionsBak.featureMode;
+    		options.R = optionsBak.R;
+    		options.gamma = optionsBak.gamma;
+    		options.maxNumIters = optionsBak.maxNumIters;
+    		options.AdaAlpha = optionsBak.AdaAlpha;
+    		options.MIRAC = optionsBak.MIRAC;
+    		parameters.gamma = optionsBak.gamma;
+    		parameters.adaAlpha = optionsBak.AdaAlpha;
+    		parameters.C = optionsBak.MIRAC;
+    		parameters.pn.setGamma(optionsBak.gamma);
+    		parameters.pn.setAdaAlpha(optionsBak.AdaAlpha);
+    		parameters.pn.setMIRAC(optionsBak.MIRAC);
+    		parameters.clearTheta();
+            System.out.println();
+            System.out.printf("Pre-training took %d ms.%n", end-start);    		
+    		System.out.println("=============================================");
+    		System.out.println();	    
+
+        }
+
+        System.out.println("=============================================");
 		System.out.printf(" Training:%n");
 		System.out.println("=============================================");
 		
@@ -51,7 +123,8 @@ public class TensorTransfer {
     		int acc = 0, tot = 0;
     		double loss = 0.0;
     		start = System.currentTimeMillis();
-                		    		
+                		  
+    		int b = 0;
     		for (int i = 0; i < N; ++i) {
     			
     			if ((i + 1) % printPeriod == 0) {
@@ -75,35 +148,57 @@ public class TensorTransfer {
     		    }
     		    
         		if (corr != n - 1) {
-        			loss += parameters.update(inst, pred, fd, iIter * N + i + 1);
+        			if (!options.useBatch)
+        				loss += parameters.update(inst, pred, fd);
+        			else
+        				loss += parameters.addGradient(inst, pred, fd);
                 }
 
         		acc += corr;
         		tot += n - 1;        		
         		
+        		b++;
+        		if (b == options.batchSize) {
+        			if (options.useBatch)
+        				parameters.batchUpdate();
+        			b = 0;
+        		}
     		}
     		System.out.printf("%n  Iter %d\tloss=%.4f\tacc=%.4f\t[%ds]%n", iIter+1, loss, acc/(tot+0.0),
     				(System.currentTimeMillis() - start)/1000);
+    		
+    		parameters.printNorm();
     		
     		
     		// evaluate on a development set
     		if (evalAndSave) {		
                 if (options.updateMode == UpdateMode.MIRA && options.MIRAAverage) 
-                	parameters.averageParameters((iIter+1)*N);
+                	parameters.averageParameters();
+                if ((iIter + 1) % 5 == 0) {
+                	saveModel(options.modelFile + "." + iIter);
+                }
+                
+                double avgDev = 0.0;
+                double avgTest = 0.0;
+                for (int lang = 0; lang < pipe.typo.langNum; ++lang) {
     			
-    			System.out.println();
-	  			System.out.println("_____________________________________________");
-	  			System.out.println();
-	  			int target = options.targetLang;
-	  			System.out.printf(" Evaluation: %s%n", options.langString[target]);
-	  			System.out.println(); 
-	  			double res = evaluateSet(target, false, false);
-	  			//double res = 0.0;
-	  			if (res > bestDevAcc) {
-	  				bestDevAcc = res;
-	  				//saveModel(options.modelFile);
-	  			}
-	  			evaluateSet(target, false, true);
+	    			System.out.println();
+		  			System.out.println("_____________________________________________");
+		  			System.out.println();
+		  			//int target = options.targetLang;
+		  			int target = lang;
+		  			System.out.printf(" Evaluation: %s%n", options.langString[target]);
+		  			System.out.println(); 
+		  			double res = evaluateSet(target, false, false);
+		  			avgTest += res;
+		  			//double res = 0.0;
+		  			if (res > bestDevAcc) {
+		  				bestDevAcc = res;
+		  				//saveModel(options.modelFile);
+		  			}
+		  			avgDev += evaluateSet(target, false, true);
+                }
+                System.out.println(avgTest / pipe.typo.langNum + " " + avgDev / pipe.typo.langNum);
 
                 if (options.updateMode == UpdateMode.MIRA && options.MIRAAverage) 
                 	parameters.unaverageParameters();
@@ -149,6 +244,44 @@ public class TensorTransfer {
         return eval.UAS();
     }
     
+    public void saveModel(String file) throws IOException 
+    {
+    	System.out.println("save model to " + file);
+    	ObjectOutputStream out = new ObjectOutputStream(
+    			new GZIPOutputStream(new FileOutputStream(file)));
+    	out.writeObject(pipe);
+    	out.writeObject(parameters);
+    	out.writeObject(options);
+    	//if (options.pruning && options.learningMode != LearningMode.Basic) 
+    	//	out.writeObject(pruner);
+    	out.close();
+    }
+	
+    public void loadModel(String file) throws IOException, ClassNotFoundException 
+    {
+    	System.out.println("load model from " + file);
+        ObjectInputStream in = new ObjectInputStream(
+                new GZIPInputStream(new FileInputStream(file)));    
+        pipe = (DependencyPipe) in.readObject();
+        parameters = (Parameters) in.readObject();
+        options = (Options) in.readObject();
+        //if (options.pruning && options.learningMode != LearningMode.Basic)
+        	//pruner = (DependencyParser) in.readObject();
+        //	pruner = (BasicArcPruner) in.readObject();
+        pipe.options = options;
+        parameters.options = options;        
+        
+		TypologicalInfo typo = new TypologicalInfo(options);
+		pipe.typo = typo;
+        pipe.ff.typo = typo;
+		FeatureRepo fr = new FeatureRepo(options, pipe.ff);
+		pipe.fr = fr;
+		pipe.ff.fr = fr;
+       
+        in.close();
+        pipe.closeAlphabets();
+    }
+    
     /**
 	 * @param args
 	 */
@@ -180,8 +313,26 @@ public class TensorTransfer {
 			parser.train(lstTrain);
 //			if (options.dev && options.learningMode != LearningMode.Basic) 
 //				parser.tuneSpeed();
-//			parser.saveModel();
+            if (options.updateMode == UpdateMode.MIRA && options.MIRAAverage) 
+            	parser.parameters.averageParameters();
+			parser.saveModel(options.modelFile + ".last");
 		}
+		
+		if (options.test) {
+			TensorTransfer parser = new TensorTransfer();
+			parser.options = options;			
+			
+			parser.loadModel(options.modelFile + ".last");
+			parser.options.processArguments(args);
+			parser.options.printOptions(); 
+			
+  			int target = options.targetLang;
+  			System.out.printf(" Evaluation: %s%n", options.langString[target]);
+  			System.out.println(); 
+  			parser.evaluateSet(target, false, false);
+  			parser.evaluateSet(target, false, true);
+		}
+		
 	}
 
 }

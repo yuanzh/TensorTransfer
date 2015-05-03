@@ -26,8 +26,8 @@ public class DependencyPipe implements Serializable {
 
     public Options options;
     public DictionarySet dictionaries;
-    public TypologicalInfo typo;
     public FeatureFactory ff;
+    public transient TypologicalInfo typo;
     public transient FeatureRepo fr;
         
     public String[] types;					// array that maps label index to label string
@@ -83,9 +83,9 @@ public class DependencyPipe implements Serializable {
         
 		int cnt = 0;
         for (int l = 0; l < options.langString.length; ++l) {
-        	if (l == options.targetLang)
+        	//if (l == options.targetLang)
         	//if (!options.langString[l].equals("es"))
-        		continue;
+        	//	continue;
         	
         	String file = constructTrainFileName(l);
         	System.out.print(" " + options.langString[l] + " ");
@@ -121,7 +121,7 @@ public class DependencyPipe implements Serializable {
 		ff.POS_ADP = dictionaries.lookupIndex(POS, "ADP") - 1;
 		
 		ff.LABEL_SBJ = dictionaries.lookupIndex(DEPLABEL, "nsubj") - 1;
-		ff.LABEL_SBJPASS = dictionaries.lookupIndex(DEPLABEL, "nsbjpass") - 1;
+		ff.LABEL_SBJPASS = dictionaries.lookupIndex(DEPLABEL, "nsubjpass") - 1;
 		ff.LABEL_DOBJ = dictionaries.lookupIndex(DEPLABEL, "dobj") - 1;
 		ff.LABEL_IOBJ = dictionaries.lookupIndex(DEPLABEL, "iobj") - 1;
         
@@ -157,15 +157,15 @@ public class DependencyPipe implements Serializable {
 			//System.out.println(poses[id - 1]);
 		}
 		
-		System.out.println("NOUN: " + poses[ff.POS_NOUN]);
-		System.out.println("PRON: " + poses[ff.POS_PRON]);
-		System.out.println("VERB: " + poses[ff.POS_VERB]);
-		System.out.println("ADJ: " + poses[ff.POS_ADJ]);
-		System.out.println("ADP: " + poses[ff.POS_ADP]);
-		System.out.println("nsubj: " + types[ff.LABEL_SBJ]);
-		System.out.println("nsubjpass: " + types[ff.LABEL_SBJPASS]);
-		System.out.println("dobj: " + types[ff.LABEL_DOBJ]);
-		System.out.println("iobj: " + types[ff.LABEL_IOBJ]);
+		System.out.println("NOUN: " + poses[ff.POS_NOUN] + " " + ff.POS_NOUN);
+		System.out.println("PRON: " + poses[ff.POS_PRON] + " " + ff.POS_PRON);
+		System.out.println("VERB: " + poses[ff.POS_VERB] + " " + ff.POS_VERB);
+		System.out.println("ADJ: " + poses[ff.POS_ADJ] + " " + ff.POS_ADJ);
+		System.out.println("ADP: " + poses[ff.POS_ADP] + " " + ff.POS_ADP);
+		System.out.println("nsubj: " + types[ff.LABEL_SBJ] + " " + ff.LABEL_SBJ);
+		System.out.println("nsubjpass: " + types[ff.LABEL_SBJPASS] + " " + ff.LABEL_SBJPASS);
+		System.out.println("dobj: " + types[ff.LABEL_DOBJ] + " " + ff.LABEL_DOBJ);
+		System.out.println("iobj: " + types[ff.LABEL_IOBJ] + " " + ff.LABEL_IOBJ);
 
 		System.out.printf("Tag/label items: %d %d %d (%d bits)  %d (%d bits)%n", 
 				dictionaries.size(POS), typo.familyNum, typo.classNum, ff.tagNumBits,
@@ -187,9 +187,9 @@ public class DependencyPipe implements Serializable {
 		HashSet<String> posTagSet = new HashSet<String>();
 		int cnt = 0;
         for (int l = 0; l < options.langString.length; ++l) {
-        	if (l == options.targetLang)
+        	//if (l == options.targetLang)
         	//if (!options.langString[l].equals("es"))
-        		continue;
+        	//	continue;
         	
         	String file = constructTrainFileName(l);
         	System.out.print(" " + options.langString[l] + " ");
@@ -240,9 +240,9 @@ public class DependencyPipe implements Serializable {
 		ArrayList<DependencyInstance> lt = new ArrayList<DependencyInstance>();
 		int cnt = 0;
         for (int l = 0; l < options.langString.length; ++l) {
-        	if (l == options.targetLang)
+        	//if (l == options.targetLang)
         	//if (!options.langString[l].equals("es"))
-        		continue;
+        	//	continue;
         	
         	String file = constructTrainFileName(l);
         	System.out.print(" " + options.langString[l] + " ");

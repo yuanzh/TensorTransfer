@@ -73,21 +73,27 @@ public class FeatureData {
 		for (int h = 0; h < len; ++h)
 			for (int m = 1; m < len; ++m) 
 				if (h != m && (nopruning || arc2id[h * len + m] != -1)) {
-					arcFvs[h * len + m] = pipe.ff.createArcFeatures(inst, h, m);
-					double score = parameters.getScore(arcFvs[h * len + m]) * gamma;
+					double score = 0.0;
+					if (gamma > 0.0) {
+						arcFvs[h * len + m] = pipe.ff.createArcFeatures(inst, h, m);
+						score = parameters.getScore(arcFvs[h * len + m]) * gamma;
+					}
 					
 					if (options.learnLabel) {
 						int optLabel = -1;
 						double optScore = NULL;
-						for (int l = 0; l < ntypes; ++l) {
-							FeatureVector lfv = pipe.ff.createArcLabelFeatures(inst, h, m, l);
-							double lScore = parameters.getLabelScore(lfv) * gamma;
-							double tScore = gamma < 1.0 ? fn.getScore(h, m, l) * (1-gamma) : 0.0;
+						for (int label = 0; label < ntypes; ++label) {
+							double lScore = 0.0;
+							if (gamma > 0.0) {
+								FeatureVector lfv = pipe.ff.createArcLabelFeatures(inst, h, m, label);
+								lScore = parameters.getLabelScore(lfv) * gamma;
+							}
+							double tScore = gamma < 1.0 ? fn.getScore(h, m, label) * (1-gamma) : 0.0;
 							//System.out.println(tScore + "\t" + h + "\t" + m + "\t" + l);
-							double loss = getLoss(h, l, inst.heads[m], inst.deplbids[m]);
+							double loss = getLoss(h, label, inst.heads[m], inst.deplbids[m]);
 							if (score + lScore + tScore + loss > optScore + 1e-10) {
 								optScore = score + lScore + tScore + loss;
-								optLabel = l;
+								optLabel = label;
 							}
 						}
 						arcLabelScores[h * len + m] = optScore;
@@ -103,13 +109,13 @@ public class FeatureData {
 				}
 	}
 	
-	public double getLoss(int h, int l, int gh, int gl) {
+	public double getLoss(int h, int label, int gh, int glabel) {
 		if (!addLoss)
 			return 0.0;
 		if (h != gh)
 			return 1.0;
-		else if (l != gl)
-			return 0.5;
+		else if (label != glabel)
+			return 1.0;
 		else
 			return 0.0;
 	}
@@ -123,9 +129,9 @@ public class FeatureData {
 	}
 	
 	public double getArcScoreWithoutLoss(int h, int m, int l) {
-		double score = parameters.getScore(arcFvs[h * len + m]);
-		double labelScore = !options.learnLabel ? 0.0
-				: parameters.getLabelScore(pipe.ff.createArcLabelFeatures(inst, h, m, l));
+		double score = gamma > 0.0 ? parameters.getScore(arcFvs[h * len + m]) : 0.0;
+		double labelScore = options.learnLabel &&  gamma > 0.0
+				? parameters.getLabelScore(pipe.ff.createArcLabelFeatures(inst, h, m, l)) : 0.0;
 		double tensorScore = gamma < 1.0 ? fn.getScore(h, m, l) : 0.0;
 		return (score + labelScore) * gamma + tensorScore * (1 - gamma);
 	}
@@ -136,8 +142,10 @@ public class FeatureData {
 		
 		for (int i = 1; i < n; ++i) {
 			int h = inst.heads[i];
-			fv.addEntries(arcFvs[h * n + i]);
-			fv.addEntries(pipe.ff.createArcLabelFeatures(inst, h, i, inst.deplbids[i]));
+			if (gamma > 0.0) { 
+				fv.addEntries(arcFvs[h * n + i]);
+				fv.addEntries(pipe.ff.createArcLabelFeatures(inst, h, i, inst.deplbids[i]));
+			}
 		}
 		
 		return fv;

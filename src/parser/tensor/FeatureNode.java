@@ -35,9 +35,9 @@ public abstract class FeatureNode {
 
 	public abstract void initTabels();
 	
-	public abstract double getScore(int h, int m, int l);
+	public abstract double getScore(int h, int m, int label);
 	
-	public abstract double addGradient(int h, int m, int l, double val, ParameterNode pn);
+	public abstract double addGradient(int h, int m, int label, double val, ParameterNode pn);
 }
 
 class FeatureDataItem {

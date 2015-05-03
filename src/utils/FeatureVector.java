@@ -266,6 +266,7 @@ public class FeatureVector {
 			System.out.print(x[i] + ":" + va[i] + " ");
 		}
 		System.out.println();
+		Utils.block();
 	}
 }
 
