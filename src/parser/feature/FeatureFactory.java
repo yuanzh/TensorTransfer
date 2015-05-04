@@ -43,6 +43,7 @@ public class FeatureFactory implements Serializable {
 	public int LABEL_SBJPASS = 5;
 	
 	public int tagNumBits, depNumBits, flagBits;
+	public int wordNumBits;
 
 	public int posNum, labelNum;
     public ParameterNode pn;
@@ -712,6 +713,23 @@ public class FeatureFactory implements Serializable {
         	addArcFeature(code, fv);
     	}
 
+		if (inst.wordVecIds[h] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[h]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.HEAD_EMB, i);
+				addArcFeature(code, v[i], fv);
+				addArcFeature(code | attDist, v[i], fv);
+			}
+		}
+		
+		if (inst.wordVecIds[m] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[m]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.MOD_EMB, i);
+				addArcFeature(code, v[i], fv);
+				addArcFeature(code | attDist, v[i], fv);
+			}
+		}
     }
     
     public void addDelexicalCFFeatures(DependencyInstance inst, int h, int m, FeatureVector fv) {
@@ -1191,7 +1209,16 @@ public class FeatureFactory implements Serializable {
 	{
 		return ((((((((((x << tagNumBits) | y) << tagNumBits) | z ) << tagNumBits) | w ) << tagNumBits) | v ) << numArcFeatBits) | temp.ordinal()) << flagBits;
 	}
-/*	
+
+    public final long createArcCodeW(FeatureTemplate.Arc temp, long x) {
+    	return ((x << numArcFeatBits) | temp.ordinal()) << flagBits;
+    }
+    
+    public final long createArcCodeWP(FeatureTemplate.Arc temp, long x, long y) {
+    	return ((((x << tagNumBits) | y) << numArcFeatBits) | temp.ordinal()) << flagBits;
+    }
+    
+    /*	
 	public void addArcFeature(long code, FeatureVector fv)
 	{
 		int id = arcAlphabet.lookupIndex(code, numArcFeats);
@@ -1310,6 +1337,18 @@ public class FeatureFactory implements Serializable {
 	    x[1] = (int) (code & ((1 << tagNumBits)-1));
 	    code = code >> tagNumBits;
 	    x[0] = (int) (code & ((1 << tagNumBits)-1));
+    }
+    
+    private final void extractArcCodeW(long code, int[] x) {
+    	code = (code >> flagBits) >> numArcFeatBits;
+	    x[0] = (int) (code & ((1 << wordNumBits)-1));
+    }
+    
+    private final void extractArcCodeWP(long code, int[] x) {
+    	code = (code >> flagBits) >> numArcFeatBits;
+	    x[1] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[0] = (int) (code & ((1 << wordNumBits)-1));
     }
     
     public void fillMultiwayParameters(LowRankParam tensor, Parameters params) {

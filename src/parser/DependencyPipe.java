@@ -2,6 +2,7 @@ package parser;
 
 import static utils.DictionarySet.DictionaryTypes.DEPLABEL;
 import static utils.DictionarySet.DictionaryTypes.POS;
+import static utils.DictionarySet.DictionaryTypes.WORD;
 
 import java.io.*;
 import java.util.*;
@@ -89,9 +90,9 @@ public class DependencyPipe implements Serializable {
         
 		int cnt = 0;
         for (int l = 0; l < options.langString.length; ++l) {
-        	//if (l == options.targetLang)
+        	if (l == options.targetLang)
         	//if (!options.langString[l].equals("es"))
-        	//	continue;
+        		continue;
         	
         	String file = constructTrainFileName(l);
         	System.out.print(" " + options.langString[l] + " ");
@@ -119,6 +120,9 @@ public class DependencyPipe implements Serializable {
 		ff.TOKEN_START = dictionaries.lookupIndex(POS, "#TOKEN_START#") - 1;
 		ff.TOKEN_END = dictionaries.lookupIndex(POS, "#TOKEN_END#") - 1;
 		ff.TOKEN_MID = dictionaries.lookupIndex(POS, "#TOKEN_MID#") - 1;
+		Utils.Assert(ff.TOKEN_START == dictionaries.lookupIndex(WORD, "#TOKEN_START#"));
+        Utils.Assert(ff.TOKEN_END == dictionaries.lookupIndex(WORD, "#TOKEN_END#")); 
+        Utils.Assert(ff.TOKEN_MID == dictionaries.lookupIndex(WORD, "#TOKEN_MID#"));
 		
 		ff.POS_NOUN = dictionaries.lookupIndex(POS, "NOUN") - 1;
 		ff.POS_PRON = dictionaries.lookupIndex(POS, "PRON") - 1;
@@ -133,9 +137,11 @@ public class DependencyPipe implements Serializable {
         
 		dictionaries.stopGrowth(DEPLABEL);
 		dictionaries.stopGrowth(POS);
+		dictionaries.stopGrowth(WORD);
 				
 		ff.tagNumBits = Math.max(Utils.log2(dictionaries.size(POS) + 1), typo.bit + 1);
 		ff.depNumBits = Utils.log2(dictionaries.size(DEPLABEL)*2 + 1);
+		ff.wordNumBits = Utils.log2(dictionaries.size(WORD)*2 + 1);
 		
 		if (options.learnLabel)
 			ff.flagBits = ff.depNumBits + 4;
@@ -176,6 +182,8 @@ public class DependencyPipe implements Serializable {
 		System.out.printf("Tag/label items: %d %d %d (%d bits)  %d (%d bits)%n", 
 				dictionaries.size(POS), typo.familyNum, typo.classNum, ff.tagNumBits,
 				dictionaries.size(DEPLABEL), ff.depNumBits);
+		System.out.printf("Lexical items: %d (%d bits)%n", 
+				dictionaries.size(WORD), ff.wordNumBits);
 		System.out.printf("Flag Bits: %d%n", ff.flagBits);
 		System.out.printf("Creation took [%d ms]%n", System.currentTimeMillis() - start);
 	}
@@ -193,9 +201,9 @@ public class DependencyPipe implements Serializable {
 		HashSet<String> posTagSet = new HashSet<String>();
 		int cnt = 0;
         for (int l = 0; l < options.langString.length; ++l) {
-        	//if (l == options.targetLang)
+        	if (l == options.targetLang)
         	//if (!options.langString[l].equals("es"))
-        	//	continue;
+        		continue;
         	
         	String file = constructTrainFileName(l);
         	System.out.print(" " + options.langString[l] + " ");
@@ -246,9 +254,9 @@ public class DependencyPipe implements Serializable {
 		ArrayList<DependencyInstance> lt = new ArrayList<DependencyInstance>();
 		int cnt = 0;
         for (int l = 0; l < options.langString.length; ++l) {
-        	//if (l == options.targetLang)
+        	if (l == options.targetLang)
         	//if (!options.langString[l].equals("es"))
-        	//	continue;
+        		continue;
         	
         	String file = constructTrainFileName(l);
         	System.out.print(" " + options.langString[l] + " ");

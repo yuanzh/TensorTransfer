@@ -33,13 +33,13 @@ public class TensorTransfer {
         	options.gamma = 1.0;
         	options.maxNumIters = 1;
         	options.AdaAlpha = 0.01;
-        	options.MIRAC = 0.01;
+        	//options.MIRAC = 0.01;
         	parameters.gamma = 1.0;
         	parameters.adaAlpha = 0.01;
-        	parameters.C = 0.01;
+        	//parameters.C = 0.01;
         	parameters.pn.setGamma(1.0);
         	parameters.pn.setAdaAlpha(0.01);
-        	parameters.pn.setMIRAC(0.01);
+        	//parameters.pn.setMIRAC(0.01);
     		System.out.println("=============================================");
     		System.out.printf(" Pre-training:%n");
     		System.out.println("=============================================");
@@ -75,13 +75,13 @@ public class TensorTransfer {
     		options.gamma = optionsBak.gamma;
     		options.maxNumIters = optionsBak.maxNumIters;
     		options.AdaAlpha = optionsBak.AdaAlpha;
-    		options.MIRAC = optionsBak.MIRAC;
+    		//options.MIRAC = optionsBak.MIRAC;
     		parameters.gamma = optionsBak.gamma;
     		parameters.adaAlpha = optionsBak.AdaAlpha;
-    		parameters.C = optionsBak.MIRAC;
+    		//parameters.C = optionsBak.MIRAC;
     		parameters.pn.setGamma(optionsBak.gamma);
     		parameters.pn.setAdaAlpha(optionsBak.AdaAlpha);
-    		parameters.pn.setMIRAC(optionsBak.MIRAC);
+    		//parameters.pn.setMIRAC(optionsBak.MIRAC);
     		parameters.clearTheta();
             System.out.println();
             System.out.printf("Pre-training took %d ms.%n", end-start);    		
@@ -179,27 +179,27 @@ public class TensorTransfer {
                 	saveModel(options.modelFile + "." + iIter);
                 }
                 
-                double avgDev = 0.0;
-                double avgTest = 0.0;
-                for (int lang = 0; lang < pipe.typo.langNum; ++lang) {
+                //double avgDev = 0.0;
+                //double avgTest = 0.0;
+                //for (int lang = 0; lang < pipe.typo.langNum; ++lang) {
     			
 	    			System.out.println();
 		  			System.out.println("_____________________________________________");
 		  			System.out.println();
-		  			//int target = options.targetLang;
-		  			int target = lang;
+		  			int target = options.targetLang;
+		  			//int target = lang;
 		  			System.out.printf(" Evaluation: %s%n", options.langString[target]);
 		  			System.out.println(); 
 		  			double res = evaluateSet(target, false, false);
-		  			avgTest += res;
+		  			//avgTest += res;
 		  			//double res = 0.0;
 		  			if (res > bestDevAcc) {
 		  				bestDevAcc = res;
 		  				//saveModel(options.modelFile);
 		  			}
-		  			avgDev += evaluateSet(target, false, true);
-                }
-                System.out.println(avgTest / pipe.typo.langNum + " " + avgDev / pipe.typo.langNum);
+		  			evaluateSet(target, false, true);
+                //}
+                //System.out.println(avgTest / pipe.typo.langNum + " " + avgDev / pipe.typo.langNum);
 
                 if (options.updateMode == UpdateMode.MIRA && options.MIRAAverage) 
                 	parameters.unaverageParameters();

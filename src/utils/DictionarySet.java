@@ -47,6 +47,8 @@ public class DictionarySet implements Serializable {
 			Utils.Assert(id == 1);
             if (i == DictionaryTypes.POS.ordinal())
                 initDict(DictionaryTypes.POS, dicts[i]);
+            else if (i == DictionaryTypes.WORD.ordinal())
+            	initDict(DictionaryTypes.WORD, dicts[i]);
 		}
 	}
     

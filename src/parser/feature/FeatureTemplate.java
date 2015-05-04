@@ -42,13 +42,18 @@ public class FeatureTemplate {
 	    HP_HPn_MPp_MP,		
 	    HPp_HP_MPp_MP,		
 		
-	    HP_BP_MP,			
+	    HP_BP_MP,		
+	    
+	    HEAD_EMB,
+	    MOD_EMB,
 	    
 	    // Bare
 	    DIST,
 	    B_HP,
 	    B_MP,
 	    B_HP_MP,
+	    B_HEAD_EMB,
+	    B_MOD_EMB,
 	    
 	    // selectively shared
 	    SV_NOUN,
