@@ -178,27 +178,27 @@ public class TensorTransfer {
                 	saveModel(options.modelFile + "." + iIter);
                 }
                 
-                double avgDev = 0.0;
-                double avgTest = 0.0;
-                for (int lang = 0; lang < pipe.typo.langNum; ++lang) {
+                //double avgDev = 0.0;
+                //double avgTest = 0.0;
+                //for (int lang = 0; lang < pipe.typo.langNum; ++lang) {
     			
 	    			System.out.println();
 		  			System.out.println("_____________________________________________");
 		  			System.out.println();
-		  			//int target = options.targetLang;
-		  			int target = lang;
+		  			int target = options.targetLang;
+		  			//int target = lang;
 		  			System.out.printf(" Evaluation: %s%n", options.langString[target]);
 		  			System.out.println(); 
 		  			double res = evaluateSet(target, false, false);
-		  			avgTest += res;
+		  			//avgTest += res;
 		  			//double res = 0.0;
 		  			if (res > bestDevAcc) {
 		  				bestDevAcc = res;
 		  				//saveModel(options.modelFile);
 		  			}
-		  			avgDev += evaluateSet(target, false, true);
-                }
-                System.out.println(avgTest / pipe.typo.langNum + " " + avgDev / pipe.typo.langNum);
+		  			evaluateSet(target, false, true);
+                //}
+                //System.out.println(avgTest / pipe.typo.langNum + " " + avgDev / pipe.typo.langNum);
 
                 if (options.updateMode == UpdateMode.MIRA && options.MIRAAverage) 
                 	parameters.unaverageParameters();
