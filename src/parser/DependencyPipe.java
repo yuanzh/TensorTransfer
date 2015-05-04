@@ -16,6 +16,7 @@ import utils.Dictionary;
 import utils.DictionarySet;
 import utils.TypologicalInfo;
 import utils.Utils;
+import utils.WordVector;
 
 public class DependencyPipe implements Serializable {
 
@@ -28,6 +29,7 @@ public class DependencyPipe implements Serializable {
     public DictionarySet dictionaries;
     public FeatureFactory ff;
     public transient TypologicalInfo typo;
+    public transient WordVector wv;
     public transient FeatureRepo fr;
         
     public String[] types;					// array that maps label index to label string
@@ -38,8 +40,12 @@ public class DependencyPipe implements Serializable {
 		dictionaries = new DictionarySet();
 		ff = new FeatureFactory(options);
 		typo = new TypologicalInfo(options);
+		wv = new WordVector(options);
 		
 		ff.typo = typo;
+		ff.wv = wv;
+		
+		dictionaries.wv = wv;
 		
 		this.options = options;
 	}

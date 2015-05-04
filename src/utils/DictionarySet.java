@@ -17,13 +17,14 @@ public class DictionarySet implements Serializable {
     private static final String token_start = "#TOKEN_START#"; 
     private static final String token_end = "#TOKEN_END#";
     private static final String token_mid = "#TOKEN_MID#";
-
+    
+    public transient WordVector wv;
 
 	public enum DictionaryTypes 
 	{
 		POS,
 		DEPLABEL,
-		WORDVEC,
+		WORD,
 		
 		TYPE_END;
 	}

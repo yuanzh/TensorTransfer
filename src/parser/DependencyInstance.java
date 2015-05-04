@@ -2,7 +2,7 @@ package parser;
 
 import static utils.DictionarySet.DictionaryTypes.DEPLABEL;
 import static utils.DictionarySet.DictionaryTypes.POS;
-import static utils.DictionarySet.DictionaryTypes.WORDVEC;
+import static utils.DictionarySet.DictionaryTypes.WORD;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -35,6 +35,7 @@ public class DependencyInstance implements Serializable {
 	
 	public int[] postagids;
 	public int[] deplbids;
+	public int[] formids;
 	public int[] wordVecIds;
 
     public DependencyInstance(int lang, String[] forms, String[] postags, int[] heads) {
@@ -57,6 +58,7 @@ public class DependencyInstance implements Serializable {
     	heads = a.heads;
     	postagids = a.postagids;
     	deplbids = a.deplbids;
+    	formids = a.formids;
     	wordVecIds = a.wordVecIds;
     }
     
@@ -65,17 +67,26 @@ public class DependencyInstance implements Serializable {
     	    	
 		postagids = new int[length];
 		deplbids = new int[length];
+		formids = new int[length];
 		
     	for (int i = 0; i < length; ++i) {
+    		formids[i] = dicts.lookupIndex(WORD, normalize(forms[i])) - 1; // zero-based
 			postagids[i] = dicts.lookupIndex(POS, postags[i]) - 1;		// zero-based
 			deplbids[i] = dicts.lookupIndex(DEPLABEL, deplbs[i]) - 1;	// zero-based
 			//System.out.println(deplbids[i] + "\t" + deplbs[i]);
     	}
     	//try { System.in.read(); } catch (IOException e) { e.printStackTrace(); }
     	
-		if (dicts.size(WORDVEC) > 0) {
-			//TODO: add wordvec
-		}
+    	if (dicts.wv != null) {
+    		wordVecIds = new int[length];
+    		for (int i = 0; i < length; ++i) {
+    			String w = forms[i];
+    			int id = dicts.wv.getWordId(lang, w);
+    			if (id < 0)
+    				id = dicts.wv.getWordId(lang, w.toLowerCase());
+    			wordVecIds[i] = id;
+    		}
+    	}
     }
 
     private String normalize(String s) {

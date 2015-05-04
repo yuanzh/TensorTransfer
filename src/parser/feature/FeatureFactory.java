@@ -18,6 +18,7 @@ import utils.FeatureVector;
 import utils.TypologicalInfo;
 import utils.Utils;
 import utils.TypologicalInfo.TypoFeatureType;
+import utils.WordVector;
 
 public class FeatureFactory implements Serializable {
 	
@@ -47,6 +48,7 @@ public class FeatureFactory implements Serializable {
     public ParameterNode pn;
 	public transient TypologicalInfo typo;
 	public transient FeatureRepo fr;
+	public transient WordVector wv;
 
     //public Alphabet arcAlphabet;
 	//public int numArcFeats;	// number of arc structure features

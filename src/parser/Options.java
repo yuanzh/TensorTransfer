@@ -43,6 +43,7 @@ public class Options implements Cloneable, Serializable {
 	public boolean train = false;
 	public boolean test = false;
 	public boolean lexical = false;
+	public boolean addWordIndicator = false;
 	public String wordVectorFile = null;
 	public String outFile = "output";
 	public String modelFile = "model.out";
