@@ -316,6 +316,22 @@ public class FeatureFactory implements Serializable {
     	return fv;
     }
     
+    public FeatureVector createLexicalFeatures(int id, int lang, int dim, int[] bias) {
+    	FeatureVector fv = new FeatureVector(dim);
+    	
+    	int code = 0;
+    	fv.addEntry(code);
+    	
+    	if (id >= 0) {
+    		double[] v = wv.getWordVec(lang, id);
+    		for (int i = 0, L = v.length; i < L; ++i) {
+    	    	fv.addEntry(bias[0] + i, v[i]);
+    		}
+    	}
+    	
+    	return fv;
+    }
+    
     public FeatureVector createContextPOSFeatures(int pp, int np, int dim, int[] bias) {
     	FeatureVector fv = new FeatureVector(dim);
     	int code = 0;
@@ -827,6 +843,28 @@ public class FeatureFactory implements Serializable {
 //        	addArcFeature(code | c, fv);
 //        	addArcFeature(code | f, fv);
     	}
+
+		if (inst.wordVecIds[h] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[h]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeWP(Arc.HEAD_EMB, i, 0);
+				addArcFeature(code | c, v[i], fv);
+				addArcFeature(code | f, v[i], fv);
+				addArcFeature(code | c | attDist, v[i], fv);
+				addArcFeature(code | f | attDist, v[i], fv);
+			}
+		}
+		
+		if (inst.wordVecIds[m] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[m]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeWP(Arc.MOD_EMB, 0, i);
+				addArcFeature(code | c, v[i], fv);
+				addArcFeature(code | f, v[i], fv);
+				addArcFeature(code | c | attDist, v[i], fv);
+				addArcFeature(code | f | attDist, v[i], fv);
+			}
+		}
     }
     
     public void addBareFeatures (DependencyInstance inst, int h, int m, FeatureVector fv) {
@@ -852,6 +890,24 @@ public class FeatureFactory implements Serializable {
     	code = createArcCodePP(Arc.B_HP_MP, HP, MP);
     	addArcFeature(code, fv);
     	addArcFeature(code | dist, fv);
+
+		if (inst.wordVecIds[h] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[h]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.B_HEAD_EMB, i);
+				addArcFeature(code, v[i], fv);
+				addArcFeature(code | dist, v[i], fv);
+			}
+		}
+		
+		if (inst.wordVecIds[m] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[m]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.B_MOD_EMB, i);
+				addArcFeature(code, v[i], fv);
+				addArcFeature(code | dist, v[i], fv);
+			}
+		}
     }
     
     public void addSelectiveFeatures (DependencyInstance inst, int h, int m, FeatureVector fv) {
@@ -975,6 +1031,23 @@ public class FeatureFactory implements Serializable {
         	addLabeledArcFeature(code, fv);
     	}
 
+		if (inst.wordVecIds[h] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[h]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.HEAD_EMB, i) | tid;
+				addArcFeature(code, v[i], fv);
+				addArcFeature(code | attDist, v[i], fv);
+			}
+		}
+		
+		if (inst.wordVecIds[m] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[m]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.MOD_EMB, i) | tid;
+				addArcFeature(code, v[i], fv);
+				addArcFeature(code | attDist, v[i], fv);
+			}
+		}
     }
     
     public void addDelexicalCFFeatures(DependencyInstance inst, int h, int m, int label, FeatureVector fv) {
@@ -1073,6 +1146,28 @@ public class FeatureFactory implements Serializable {
 //        	addLabeledArcFeature(code | c, fv);
 //        	addLabeledArcFeature(code | f, fv);
     	}
+ 
+		if (inst.wordVecIds[h] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[h]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeWP(Arc.HEAD_EMB, i, 0) | tid;
+				addArcFeature(code | c, v[i], fv);
+				addArcFeature(code | f, v[i], fv);
+				addArcFeature(code | c | attDist, v[i], fv);
+				addArcFeature(code | f | attDist, v[i], fv);
+			}
+		}
+		
+		if (inst.wordVecIds[m] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[m]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeWP(Arc.MOD_EMB, 0, i) | tid;
+				addArcFeature(code | c, v[i], fv);
+				addArcFeature(code | f, v[i], fv);
+				addArcFeature(code | c | attDist, v[i], fv);
+				addArcFeature(code | f | attDist, v[i], fv);
+			}
+		}
     }
     
     public void addBareFeatures (DependencyInstance inst, int h, int m, int label, FeatureVector fv) {
@@ -1099,6 +1194,24 @@ public class FeatureFactory implements Serializable {
     	code = createArcCodePP(Arc.B_HP_MP, HP, MP) | tid;
     	addLabeledArcFeature(code, fv);
     	addLabeledArcFeature(code | dist, fv);
+
+		if (inst.wordVecIds[h] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[h]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.B_HEAD_EMB, i) | tid;
+				addArcFeature(code, v[i], fv);
+				addArcFeature(code | dist, v[i], fv);
+			}
+		}
+		
+		if (inst.wordVecIds[m] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[m]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.B_MOD_EMB, i) | tid;
+				addArcFeature(code, v[i], fv);
+				addArcFeature(code | dist, v[i], fv);
+			}
+		}
     }
     
     public void addSelectiveFeatures (DependencyInstance inst, int h, int m, int label, FeatureVector fv) {
