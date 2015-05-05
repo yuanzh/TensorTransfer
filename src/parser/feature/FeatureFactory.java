@@ -718,7 +718,7 @@ public class FeatureFactory implements Serializable {
 		
 		int attDist = getBinnedDistance(h - m) + 1;
 		int c = ((typo.getClass(inst.lang) + 1) << numArcFeatBits) << flagBits;
-		//int f = ((typo.getFamily(inst.lang) + typo.classNum + 1) << numArcFeatBits) << flagBits;
+		int f = ((typo.getFamily(inst.lang) + typo.classNum + 1) << numArcFeatBits) << flagBits;
 		int n = inst.length;
 		
 		int HP = pos[h] + 1;
@@ -730,82 +730,82 @@ public class FeatureFactory implements Serializable {
 		
     	code = createArcCodePP(Arc.ATTDIST, 0, 0);
     	addArcFeature(code | c | attDist, fv);
-    	//addArcFeature(code | f | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
     	
     	code = createArcCodePP(Arc.HP, HP, 0);
     	addArcFeature(code | c, fv);
-    	//addArcFeature(code | f, fv);
+    	addArcFeature(code | f, fv);
     	addArcFeature(code | c | attDist, fv);
-    	//addArcFeature(code | f | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePP(Arc.MP, MP, 0);
     	addArcFeature(code | c, fv);
-    	//addArcFeature(code | f, fv);
+    	addArcFeature(code | f, fv);
     	addArcFeature(code | c | attDist, fv);
-    	//addArcFeature(code | f | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPP(Arc.HP_MP, HP, MP, 0);
     	addArcFeature(code | c, fv);
-    	//addArcFeature(code | f, fv);
+    	addArcFeature(code | f, fv);
     	addArcFeature(code | c | attDist, fv);
-    	//addArcFeature(code | f | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPP(Arc.HPp_HP_MP, HPp, HP, MP, 0);
     	addArcFeature(code | c, fv);
-    	//addArcFeature(code | f, fv);
+    	addArcFeature(code | f, fv);
     	addArcFeature(code | c | attDist, fv);
-    	//addArcFeature(code | f | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPP(Arc.HP_HPn_MP, HP, HPn, MP, 0);
     	addArcFeature(code | c, fv);
-    	//addArcFeature(code | f, fv);
+    	addArcFeature(code | f, fv);
     	addArcFeature(code | c | attDist, fv);
-    	//addArcFeature(code | f | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPP(Arc.HP_MPp_MP, HP, MPp, MP, 0);
     	addArcFeature(code | c, fv);
-    	//addArcFeature(code | f, fv);
+    	addArcFeature(code | f, fv);
     	addArcFeature(code | c | attDist, fv);
-    	//addArcFeature(code | f | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPP(Arc.HP_MP_MPn, HP, MP, MPn, 0);
     	addArcFeature(code | c, fv);
-    	//addArcFeature(code | f, fv);
+    	addArcFeature(code | f, fv);
     	addArcFeature(code | c | attDist, fv);
-    	//addArcFeature(code | f | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn, 0);
     	addArcFeature(code | c, fv);
-    	//addArcFeature(code | f, fv);
+    	addArcFeature(code | f, fv);
     	addArcFeature(code | c | attDist, fv);
-    	//addArcFeature(code | f | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn, 0);
     	addArcFeature(code | c, fv);
-    	//addArcFeature(code | f, fv);
+    	addArcFeature(code | f, fv);
     	addArcFeature(code | c | attDist, fv);
-    	//addArcFeature(code | f | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP, 0);
     	addArcFeature(code | c, fv);
-    	//addArcFeature(code | f, fv);
+    	addArcFeature(code | f, fv);
     	addArcFeature(code | c | attDist, fv);
-    	//addArcFeature(code | f | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP, 0);
     	addArcFeature(code | c, fv);
-    	//addArcFeature(code | f, fv);
+    	addArcFeature(code | f, fv);
     	addArcFeature(code | c | attDist, fv);
-    	//addArcFeature(code | f | attDist, fv);
+    	addArcFeature(code | f | attDist, fv);
 
     	int large = Math.max(h, m);
     	int small = Math.min(h, m);
     	
     	for (int i = small + 1; i < large; ++i) {
-//    		int BP = pos[i] + 1;
-//        	code = createArcCodePPPP(Arc.HP_BP_MP, HP, BP, MP, 0);
-//        	addArcFeature(code | c, fv);
-//        	addArcFeature(code | f, fv);
+    		int BP = pos[i] + 1;
+        	code = createArcCodePPPP(Arc.HP_BP_MP, HP, BP, MP, 0);
+        	addArcFeature(code | c, fv);
+        	addArcFeature(code | f, fv);
     	}
     }
     
@@ -964,7 +964,7 @@ public class FeatureFactory implements Serializable {
 		int tid = label << 4;
 		int attDist = getBinnedDistance(h - m) + 1;
 		int c = ((typo.getClass(inst.lang) + 1) << numArcFeatBits) << flagBits;
-		//int f = ((typo.getFamily(inst.lang) + typo.classNum + 1) << numArcFeatBits) << flagBits;
+		int f = ((typo.getFamily(inst.lang) + typo.classNum + 1) << numArcFeatBits) << flagBits;
 		int n = inst.length;
 		
 		int HP = pos[h] + 1;
@@ -976,82 +976,82 @@ public class FeatureFactory implements Serializable {
 		
     	code = createArcCodePP(Arc.ATTDIST, 0, 0) | tid;
     	addLabeledArcFeature(code | c | attDist, fv);
-    	//addLabeledArcFeature(code | f | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
     	
     	code = createArcCodePP(Arc.HP, HP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	//addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	//addLabeledArcFeature(code | f | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePP(Arc.MP, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	//addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	//addLabeledArcFeature(code | f | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPP(Arc.HP_MP, HP, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	//addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	//addLabeledArcFeature(code | f | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPP(Arc.HPp_HP_MP, HPp, HP, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	//addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	//addLabeledArcFeature(code | f | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPP(Arc.HP_HPn_MP, HP, HPn, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	//addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	//addLabeledArcFeature(code | f | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPP(Arc.HP_MPp_MP, HP, MPp, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	//addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	//addLabeledArcFeature(code | f | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPP(Arc.HP_MP_MPn, HP, MP, MPn, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	//addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	//addLabeledArcFeature(code | f | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	//addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	//addLabeledArcFeature(code | f | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	//addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	//addLabeledArcFeature(code | f | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	//addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	//addLabeledArcFeature(code | f | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
     	code = createArcCodePPPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	//addLabeledArcFeature(code | f, fv);
+    	addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	//addLabeledArcFeature(code | f | attDist, fv);
+    	addLabeledArcFeature(code | f | attDist, fv);
 
     	int large = Math.max(h, m);
     	int small = Math.min(h, m);
     	
     	for (int i = small + 1; i < large; ++i) {
-//    		int BP = pos[i] + 1;
-//        	code = createArcCodePPPP(Arc.HP_BP_MP, HP, BP, MP, 0) | tid;
-//        	addLabeledArcFeature(code | c, fv);
-//        	addLabeledArcFeature(code | f, fv);
+    		int BP = pos[i] + 1;
+        	code = createArcCodePPPP(Arc.HP_BP_MP, HP, BP, MP, 0) | tid;
+        	addLabeledArcFeature(code | c, fv);
+        	addLabeledArcFeature(code | f, fv);
     	}
     }
     

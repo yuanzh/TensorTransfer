@@ -33,6 +33,7 @@ public class TypologicalInfo {
 	}
 	
 	public void loadData(String file) throws IOException {
+		System.out.println("load typo information from " + file);
 		BufferedReader br = new BufferedReader(new FileReader(file));
 		String[] data = br.readLine().split("\\s+");
 		langNum = Integer.parseInt(data[0]);

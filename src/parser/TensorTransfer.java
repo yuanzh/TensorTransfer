@@ -10,6 +10,7 @@ import parser.Options.UpdateMode;
 import parser.decoding.DependencyDecoder;
 import parser.feature.FeatureRepo;
 import parser.io.DependencyReader;
+import parser.io.DependencyWriter;
 import parser.tensor.LowRankParam;
 import parser.tensor.ParameterNode;
 import utils.TypologicalInfo;
@@ -215,6 +216,11 @@ public class TensorTransfer {
     	else
     		reader.startReading(pipe.constructTestFileName(target));
     	
+    	DependencyWriter writer = null;
+    	if (isDev && options.outFile != null) {
+    		writer = DependencyWriter.createDependencyWriter(options, target, pipe);
+    		writer.startWriting(options.outFile);
+    	}
 
     	DependencyDecoder decoder = DependencyDecoder.createDependencyDecoder(options);   	
     	
@@ -228,10 +234,17 @@ public class TensorTransfer {
             DependencyInstance predInst = decoder.decode(inst, fd);
             eval.add(inst, predInst, evalWithPunc);
     		
+    		if (writer != null) {
+    			inst.heads = predInst.heads;
+    			inst.deplbids = predInst.deplbids;
+    			writer.writeInstance(inst);
+    		}
+
     		inst = pipe.createInstance(reader);
     	}
     	
     	reader.close();
+    	if (writer != null) writer.close();
     	
     	System.out.printf("  Tokens: %d%n", eval.tot);
     	System.out.printf("  Sentences: %d%n", eval.nsents);
@@ -322,7 +335,7 @@ public class TensorTransfer {
 			TensorTransfer parser = new TensorTransfer();
 			parser.options = options;			
 			
-			parser.loadModel(options.modelFile + ".last");
+			parser.loadModel(options.modelFile + ".9");
 			parser.options.processArguments(args);
 			parser.options.printOptions(); 
 			
