@@ -316,6 +316,22 @@ public class FeatureFactory implements Serializable {
     	return fv;
     }
     
+    public FeatureVector createLexicalFeatures(int wordid, int wordVecId, int lang, int dim, int[] bias) {
+    	FeatureVector fv = new FeatureVector(dim);
+    	
+    	int code = 0;
+    	fv.addEntry(code);
+    	
+    	if (wordVecId >= 0) {
+    		double[] v = wv.getWordVec(lang, wordVecId);
+    		for (int i = 0, L = v.length; i < L; ++i) {
+    			fv.addEntry(bias[0] + i, v[i]);
+    		}
+    	}
+    	
+    	return fv;
+    }
+    
     public FeatureVector createLexicalFeatures(int id, int lang, int dim, int[] bias) {
     	FeatureVector fv = new FeatureVector(dim);
     	
