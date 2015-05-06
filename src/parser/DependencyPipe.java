@@ -41,7 +41,8 @@ public class DependencyPipe implements Serializable {
 		dictionaries = new DictionarySet();
 		ff = new FeatureFactory(options);
 		typo = new TypologicalInfo(options);
-		wv = new WordVector(options);
+		if (options.lexical)
+			wv = new WordVector(options);
 		
 		ff.typo = typo;
 		ff.wv = wv;
@@ -120,9 +121,9 @@ public class DependencyPipe implements Serializable {
 		ff.TOKEN_START = dictionaries.lookupIndex(POS, "#TOKEN_START#") - 1;
 		ff.TOKEN_END = dictionaries.lookupIndex(POS, "#TOKEN_END#") - 1;
 		ff.TOKEN_MID = dictionaries.lookupIndex(POS, "#TOKEN_MID#") - 1;
-		Utils.Assert(ff.TOKEN_START == dictionaries.lookupIndex(WORD, "#TOKEN_START#"));
-        Utils.Assert(ff.TOKEN_END == dictionaries.lookupIndex(WORD, "#TOKEN_END#")); 
-        Utils.Assert(ff.TOKEN_MID == dictionaries.lookupIndex(WORD, "#TOKEN_MID#"));
+		Utils.Assert(ff.TOKEN_START == dictionaries.lookupIndex(WORD, "#TOKEN_START#") - 1);
+        Utils.Assert(ff.TOKEN_END == dictionaries.lookupIndex(WORD, "#TOKEN_END#") - 1); 
+        Utils.Assert(ff.TOKEN_MID == dictionaries.lookupIndex(WORD, "#TOKEN_MID#") - 1);
 		
 		ff.POS_NOUN = dictionaries.lookupIndex(POS, "NOUN") - 1;
 		ff.POS_PRON = dictionaries.lookupIndex(POS, "PRON") - 1;
@@ -237,7 +238,7 @@ public class DependencyPipe implements Serializable {
 
 		System.out.printf("Num of CONLL fine POS tags: %d %d%n", posTagSet.size(), dictionaries.size(POS));
 		System.out.printf("Num of labels: %d%n", types.length);
-		System.out.printf("Num of Syntactic Features: %d%n", ff.numArcFeats);
+		System.out.printf("Num of Syntactic Features: %d%n", ff.featureHashSet.size());
 	}
 
     public void closeAlphabets() 

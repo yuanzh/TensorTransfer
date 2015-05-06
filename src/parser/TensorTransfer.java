@@ -47,7 +47,7 @@ public class TensorTransfer {
     		start = System.currentTimeMillis();
 
     		System.out.println("Running " + options.updateMode.name() + " ... ");
-    		trainIter(lstTrain, true);
+    		trainIter(lstTrain, false);
     		System.out.println();
     		
     		System.out.println("Init tensor ... ");

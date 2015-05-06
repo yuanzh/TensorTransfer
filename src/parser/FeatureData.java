@@ -139,6 +139,7 @@ public class FeatureData {
 	public FeatureVector getFeatureVector(DependencyInstance inst) {
 		FeatureVector fv = new FeatureVector(pipe.ff.numArcFeats);
 		int n = inst.length;
+		Utils.Assert(n == len);
 		
 		for (int i = 1; i < n; ++i) {
 			int h = inst.heads[i];

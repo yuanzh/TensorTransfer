@@ -42,7 +42,7 @@ public class Options implements Cloneable, Serializable {
 	public String devExt = "-universal-dev.conll";
 	public boolean train = false;
 	public boolean test = false;
-	public boolean lexical = false;
+	public boolean lexical = true;
 	public boolean addWordIndicator = false;
 	public String wordVectorFile = null;
 	public String outFile = "output";
@@ -87,7 +87,7 @@ public class Options implements Cloneable, Serializable {
 	// tensor
 	public double gamma = 1.0;
 	public int R = 100;
-	public int extraR = 10;
+	public int extraR = 1;
 	public boolean useNN = false;
 	public boolean initTensorWithPretrain = true;
 	
@@ -115,8 +115,9 @@ public class Options implements Cloneable, Serializable {
 //	}
 //	PossibleLang lang;
 //	
-	public String langString[] = {"en", "fr", "de", "id", "it", "ja",
-			"ko", "pt-br", "es", "sv"};
+	//public String langString[] = {"en", "fr", "de", "id", "it", "ja",
+	//		"ko", "pt-br", "es", "sv"};
+	public String langString[] = {"en", "fr", "de", "it", "pt-br", "es", "sv"};
 	
 	public String targetLangStr = "";
 	public int targetLang;
@@ -281,10 +282,6 @@ public class Options implements Cloneable, Serializable {
     	}
     	
     	targetLang = findLang(targetLangStr);
-    	if (wordVectorFile == null) {
-    		lexical = false;
-    		useNN = false;
-    	}
     	
     	Utils.rnd = new Random(seed);
     }
@@ -299,6 +296,7 @@ public class Options implements Cloneable, Serializable {
     	System.out.println("train: " + train);
     	System.out.println("test: " + test);
         System.out.println("iters: " + maxNumIters);
+    	System.out.println("lexical: " + lexical);
     	System.out.println("label: " + learnLabel);
         System.out.println("max-sent: " + maxNumSent);  
         System.out.println("seed: " + seed);  

@@ -182,18 +182,19 @@ public class ParameterNode implements Serializable {
 			lexical.setEmptyFeature();
 			lexical.setNodeNum(2);
 			
-			// TODO: add word vector and construct parameters
 			if (options.useNN) {
+				// TODO: add word vector and construct parameters
 				Utils.ThrowException("not implemented yet");
 			}
 			else {
 				lexical.node[0] = new ParameterNode(options, pipe, options.R * options.extraR); 
 				lexical.node[0].setNodeNum(0);
-				lexical.node[0].setFeatureSizeAndBias(null);
+				int[] dim1 = {1, pipe.wv.size};
+				lexical.node[0].setFeatureSizeAndBias(dim1);
 				
 				lexical.node[1] = new ParameterNode(options, pipe, options.R * options.extraR); 
 				lexical.node[1].setNodeNum(0);
-				lexical.node[1].setFeatureSizeAndBias(null);
+				lexical.node[1].setFeatureSizeAndBias(dim1);
 			}
 			
 			// delexical
@@ -400,7 +401,7 @@ public class ParameterNode implements Serializable {
 			double lr = Math.min(alpha, C);
 			for (int r = 0; r < rank; ++r) {
 				FeatureVector dfv = dFV[r];
-				dfv.aggregate();
+				//dfv.aggregate();
 				for (int i = 0, L = dfv.size(); i < L; ++i) {
 					int x = dfv.x(i);
 					double g = dfv.value(i) * (1 - gamma);

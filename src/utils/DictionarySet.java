@@ -58,14 +58,12 @@ public class DictionarySet implements Serializable {
         Utils.Assert(id == 1);
 
         // add special tokens for POS tags and words
-        if (tag == DictionaryTypes.POS) {
-            id = dict.lookupIndex(token_start);
-            Utils.Assert(id == 2);
-            id = dict.lookupIndex(token_end);
-            Utils.Assert(id == 3);
-            id = dict.lookupIndex(token_mid);
-            Utils.Assert(id == 4);
-        }
+        id = dict.lookupIndex(token_start);
+        Utils.Assert(id == 2);
+        id = dict.lookupIndex(token_end);
+        Utils.Assert(id == 3);
+        id = dict.lookupIndex(token_mid);
+        Utils.Assert(id == 4);
     }
 
 	public int lookupIndex(DictionaryTypes tag, String item) 

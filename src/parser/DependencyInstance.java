@@ -6,6 +6,7 @@ import static utils.DictionarySet.DictionaryTypes.WORD;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.regex.Pattern;
 import utils.DictionarySet;
 
@@ -77,8 +78,9 @@ public class DependencyInstance implements Serializable {
     	}
     	//try { System.in.read(); } catch (IOException e) { e.printStackTrace(); }
     	
+		wordVecIds = new int[length];
+		Arrays.fill(wordVecIds, -1);
     	if (dicts.wv != null) {
-    		wordVecIds = new int[length];
     		for (int i = 0; i < length; ++i) {
     			String w = forms[i];
     			int id = dicts.wv.getWordId(lang, w);

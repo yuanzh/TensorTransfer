@@ -11,6 +11,7 @@ public class WordVector {
 	int langNum;
 	double[][][] wordVec;	//[lang][wordid][dim]
 	TObjectIntHashMap<String>[] dicts;
+	public int size;
 	
 	public WordVector(Options options) throws IOException {
 		this.options = options;
@@ -21,7 +22,7 @@ public class WordVector {
 	}
 	
 	public String constructFileName(int l) {
-		return options.dataDir + "/universal_treebanks_v2.0/" + langString[l] + ".vec.100";
+		return options.dataDir + "/universal_treebanks_v2.0/" + langString[l] + "-multi-embedding";
 	}
 	
 	public void loadWordVector() throws IOException {
@@ -36,6 +37,8 @@ public class WordVector {
 			String[] data = br.readLine().split("\\s+");
 			int wordNum = Integer.parseInt(data[0]);
 			int dim = Integer.parseInt(data[1]);
+			size = dim;
+			
 			wordVec[lang] = new double[wordNum][dim];
 			for (int i = 0; i < wordNum; ++i) {
 				data = br.readLine().split("\\s+");
@@ -43,6 +46,7 @@ public class WordVector {
 				for (int l = 0; l < dim; ++l) {
 					wordVec[lang][i][l] = Double.parseDouble(data[l + 1]);
 				}
+				Utils.normalize(wordVec[lang][i]);
 			}
 			br.close();
 		}
