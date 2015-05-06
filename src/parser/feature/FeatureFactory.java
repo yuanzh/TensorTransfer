@@ -162,7 +162,6 @@ public class FeatureFactory implements Serializable {
 		int n = inst.length;
 		ParameterNode delexical = pn;
 		if (options.lexical) {
-			// TODO: set lexical features
 			delexical = pn.node[1];
 		}
 		
@@ -839,8 +838,8 @@ public class FeatureFactory implements Serializable {
 		int[] pos = inst.postagids;
 		int[] feature = typo.getFeature(inst.lang);
 		
-		//int dir = h > m ? 1 : 2;
-		int dir = getBinnedDistance(h - m) + 1;
+		int dir = h > m ? 1 : 2;
+		//int dir = getBinnedDistance(h - m) + 1;
 		
 		int HP = pos[h];
 		int MP = pos[m];
@@ -1087,8 +1086,8 @@ public class FeatureFactory implements Serializable {
 		int[] feature = typo.getFeature(inst.lang);
 		
 		int tid = label << 4;
-		//int dir = h > m ? 1 : 2;
-		int dir = getBinnedDistance(h - m) + 1;
+		int dir = h > m ? 1 : 2;
+		//int dir = getBinnedDistance(h - m) + 1;
 		
 		int HP = pos[h];
 		int MP = pos[m];
@@ -1141,7 +1140,7 @@ public class FeatureFactory implements Serializable {
     /***
      * generate code
      */
-    
+    /*
     public final int getBinnedDistance(int x) {
     	// x = h-c, 0-6: left, 7-13:right
     	
@@ -1158,6 +1157,22 @@ public class FeatureFactory implements Serializable {
     		flag |= 0x6;
     	else
     		flag |= x;   	 // x = 1 .. 5
+    	return flag+add-1;	// zero based
+    }
+    */
+    public final int getBinnedDistance(int x) {
+    	// x = h-c, 0-4: left, 5-9:right
+    	
+    	int flag = 0;
+    	int add = 0;
+    	if (x < 0) {
+    		x = -x;
+    		add = 5;
+    	}
+    	if (x >= 5)          // x >= 5
+    		flag |= 0x5;
+    	else
+    		flag |= x;   	 // x = 1 .. 4
     	return flag+add-1;	// zero based
     }
     

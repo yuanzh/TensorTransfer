@@ -83,7 +83,7 @@ public class DependencyPipe implements Serializable {
         
 		int cnt = 0;
         for (int l = 0; l < options.langString.length; ++l) {
-        	if (l == options.targetLang)
+        	if (l != options.targetLang)
         	//if (!options.langString[l].equals("es"))
         		continue;
         	
@@ -187,7 +187,7 @@ public class DependencyPipe implements Serializable {
 		HashSet<String> posTagSet = new HashSet<String>();
 		int cnt = 0;
         for (int l = 0; l < options.langString.length; ++l) {
-        	if (l == options.targetLang)
+        	if (l != options.targetLang)
         	//if (!options.langString[l].equals("es"))
         		continue;
         	
@@ -240,7 +240,7 @@ public class DependencyPipe implements Serializable {
 		ArrayList<DependencyInstance> lt = new ArrayList<DependencyInstance>();
 		int cnt = 0;
         for (int l = 0; l < options.langString.length; ++l) {
-        	if (l == options.targetLang)
+        	if (l != options.targetLang)
         	//if (!options.langString[l].equals("es"))
         		continue;
         	

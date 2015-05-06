@@ -18,7 +18,8 @@ public class ParameterNode implements Serializable {
 	 */
 	private static final long serialVersionUID = 1L;
 	
-	public static final int d = 7;
+	//public static final int d = 7;
+	public static final int d = 5;
 
 	Options options;
 	DependencyPipe pipe;
