@@ -22,10 +22,30 @@ public class TensorTransfer {
 	public DependencyPipe pipe;
 	public Parameters parameters;
 	
-    public void train(DependencyInstance[] lstTrain) throws IOException, CloneNotSupportedException {
+    public void train(DependencyInstance[] lstTrain) throws IOException, CloneNotSupportedException, ClassNotFoundException {
     	long start = 0, end = 0;
     	
-        if (options.R > 0 && options.gamma < 1 && options.initTensorWithPretrain) {
+    	if (options.initModel != null) {
+    		System.out.println("init model");
+            ObjectInputStream in = new ObjectInputStream(
+                    new GZIPInputStream(new FileInputStream(options.initModel)));    
+            in.readObject();		// DependencyPIpe
+            Parameters param = (Parameters) in.readObject();
+            in.close();
+    		
+            Utils.Assert(parameters.size == param.size);
+            //System.arraycopy(param.params, 0, parameters.params, 0, param.params.length);
+            //if (options.updateMode == UpdateMode.MIRA) {
+            //	 System.arraycopy(param.params, 0, parameters.total, 0, param.params.length);
+            //}
+            parameters.reg = param.params;
+            
+            // TODO: copy tensor parameters
+            if (options.gamma < 1.0) {
+            	
+            }
+    	}
+    	else if (options.R > 0 && options.gamma < 1 && options.initTensorWithPretrain) {
 
         	Options optionsBak = (Options) options.clone();
         	options.featureMode= FeatureMode.Basic;
@@ -143,8 +163,7 @@ public class TensorTransfer {
     		    
         		int corr = 0;
     		    for (int m = 1; m < n; ++m) {
-        			if (pred.heads[m] == inst.heads[m] && 
-        				(!options.learnLabel || pred.deplbids[m] == inst.deplbids[m]))
+        			if (pred.heads[m] == inst.heads[m])
         				corr++;
     		    }
     		    
@@ -156,12 +175,30 @@ public class TensorTransfer {
                 }
 
         		acc += corr;
-        		tot += n - 1;        		
+        		tot += n - 1;    
+        		
+        		// predict label
+        		if (options.learnLabel) {
+        			pred.heads = inst.heads;
+        			fd.predictLabels(pred.heads, pred.deplbids);
+        			int la = 0;
+        		    for (int m = 1; m < n; ++m) {
+            			if (pred.deplbids[m] == inst.deplbids[m])
+            				la++;
+        		    }
+        			if (la != n-1) {
+        				if (!options.useBatch)
+        					loss += parameters.updateLabel(inst, pred, fd);
+        				else
+        					loss += parameters.addLabelGradient(inst, pred, fd);
+        			}
+        		}
         		
         		b++;
         		if (b == options.batchSize) {
+        			//System.out.println("aaa");
         			if (options.useBatch)
-        				parameters.batchUpdate();
+        				parameters.batchUpdate(N);
         			b = 0;
         		}
     		}
@@ -232,6 +269,10 @@ public class TensorTransfer {
     	while (inst != null) {
     		FeatureData fd = new FeatureData(inst, this, true, false);
             DependencyInstance predInst = decoder.decode(inst, fd);
+            if (options.learnLabel) {
+            	fd.predictLabels(predInst.heads, predInst.deplbids);
+            }
+            
             eval.add(inst, predInst, evalWithPunc);
     		
     		if (writer != null) {

@@ -66,6 +66,7 @@ public class FeatureData {
 		// calculate 1st order feature vectors and scores
 		initFirstOrderTables();
 	}
+	
 	private void initFirstOrderTables() 
 	{
 		boolean nopruning = !options.pruning || pruner == null || options.featureMode == FeatureMode.Basic;
@@ -81,21 +82,26 @@ public class FeatureData {
 					
 					if (options.learnLabel) {
 						int optLabel = -1;
-						double optScore = NULL;
-						for (int label = 0; label < ntypes; ++label) {
-							double lScore = 0.0;
-							if (gamma > 0.0) {
-								FeatureVector lfv = pipe.ff.createArcLabelFeatures(inst, h, m, label);
-								lScore = parameters.getLabelScore(lfv) * gamma;
-							}
-							double tScore = gamma < 1.0 ? fn.getScore(h, m, label) * (1-gamma) : 0.0;
-							//System.out.println(tScore + "\t" + h + "\t" + m + "\t" + l);
-							double loss = getLoss(h, label, inst.heads[m], inst.deplbids[m]);
-							if (score + lScore + tScore + loss > optScore + 1e-10) {
-								optScore = score + lScore + tScore + loss;
-								optLabel = label;
-							}
-						}
+//						double optScore = NULL;
+//						for (int label = 0; label < ntypes; ++label) {
+//							double lScore = 0.0;
+//							if (gamma > 0.0) {
+//								FeatureVector lfv = pipe.ff.createArcLabelFeatures(inst, h, m, label);
+//								lScore = parameters.getLabelScore(lfv) * gamma;
+//							}
+//							double tScore = gamma < 1.0 ? fn.getScore(h, m, label) * (1-gamma) : 0.0;
+//							//System.out.println(tScore + "\t" + h + "\t" + m + "\t" + l);
+//							double loss = getLoss(h, label, inst.heads[m], inst.deplbids[m]);
+//							if (score + lScore + tScore + loss > optScore + 1e-10) {
+//								optScore = score + lScore + tScore + loss;
+//								optLabel = label;
+//							}
+//						}
+
+						double tScore = gamma < 1.0 ? fn.getScore(h, m, -1) * (1-gamma) : 0.0;
+						double loss = getLoss(h, -1, inst.heads[m], -1);
+						double optScore = score + tScore + loss;
+
 						arcLabelScores[h * len + m] = optScore;
 						bestLabel[h * len + m] = optLabel;
 						//System.out.println(h + "\t" + m + "\t" + optScore + "\t" + optLabel);
@@ -107,6 +113,30 @@ public class FeatureData {
 						arcLabelScores[h * len + m] = score + tScore + loss;
 					}
 				}
+	}
+	
+	public void predictLabels(int[] heads, int[] deplbids) {
+		Utils.Assert(heads.length == len);
+		for (int m = 1; m < len; ++m) {
+			int h = heads[m];
+			
+			int optLabel = -1;
+			double optScore = NULL;
+			for (int label = 0; label < ntypes; ++label) {
+				double lScore = 0.0;
+				if (gamma > 0.0) {
+					FeatureVector lfv = pipe.ff.createArcLabelFeatures(inst, h, m, label);
+					lScore = parameters.getLabelScore(lfv) * gamma;
+				}
+				double tScore = gamma < 1.0 ? fn.getScore(h, m, label) * (1-gamma) : 0.0;
+				double loss = getLoss(h, label, heads[m], inst.deplbids[m]);
+				if (lScore + tScore + loss > optScore + 1e-10) {
+					optScore = lScore + tScore + loss;
+					optLabel = label;
+				}
+			}
+			deplbids[m] = optLabel;
+		}
 	}
 	
 	public double getLoss(int h, int label, int gh, int glabel) {
@@ -144,6 +174,20 @@ public class FeatureData {
 			int h = inst.heads[i];
 			if (gamma > 0.0) { 
 				fv.addEntries(arcFvs[h * n + i]);
+				//fv.addEntries(pipe.ff.createArcLabelFeatures(inst, h, i, inst.deplbids[i]));
+			}
+		}
+		
+		return fv;
+	}
+
+	public FeatureVector getLabelFeatureVector(DependencyInstance inst) {
+		FeatureVector fv = new FeatureVector(pipe.ff.numArcFeats);
+		int n = inst.length;
+		
+		for (int i = 1; i < n; ++i) {
+			int h = inst.heads[i];
+			if (gamma > 0.0) { 
 				fv.addEntries(pipe.ff.createArcLabelFeatures(inst, h, i, inst.deplbids[i]));
 			}
 		}
@@ -156,6 +200,15 @@ public class FeatureData {
 	{
 		FeatureVector dfv = getFeatureVector(gold);
 		dfv.addEntries(getFeatureVector(pred), -1.0);
+
+		return dfv;
+	}
+
+	public FeatureVector getLabelFeatureDifference(DependencyInstance gold, 
+			DependencyInstance pred)
+	{
+		FeatureVector dfv = getLabelFeatureVector(gold);
+		dfv.addEntries(getLabelFeatureVector(pred), -1.0);
 
 		return dfv;
 	}

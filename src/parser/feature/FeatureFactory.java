@@ -1117,7 +1117,7 @@ public class FeatureFactory implements Serializable {
     	//addLabeledArcFeature(code | f | attDist, fv);
     	for (int i = 0; i < typoVecDim; ++i)
     		addArcFeature(code | f[i] | attDist, v[i], fv);
-/*
+
     	code = createArcCodePP(Arc.ATTDIST, 0, 0) | tid;
     	addLabeledArcFeature(code | c | attDist, fv);
     	//addLabeledArcFeature(code | f | attDist, fv);
@@ -1175,7 +1175,7 @@ public class FeatureFactory implements Serializable {
         	for (int i = 0; i < typoVecDim; ++i)
         		addArcFeature(code | f[i], v[i], fv);
    		}
-   		*/
+   		
     }
     
     public void addBareFeatures (DependencyInstance inst, int h, int m, int label, FeatureVector fv) {

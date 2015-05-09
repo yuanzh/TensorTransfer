@@ -79,8 +79,8 @@ public class Options implements Cloneable, Serializable {
 	public double AdaEps = 1e-5;
 	
 	// batch
-	public int batchSize = 100;		// batch size
-	public double lambda = 0.1;	// regularization
+	public int batchSize = 10;		// batch size
+	public double lambda = 10.0;	// regularization
 	public double tensorLambda = 0.1;
 	public boolean useBatch = false;
 	
@@ -100,6 +100,7 @@ public class Options implements Cloneable, Serializable {
 	
 	public boolean direct = false;
 	public int typoVecDim = 10;
+	public String initModel = null;
 	
 	// CoNLL-UNI languages
 //	public enum PossibleLang {
@@ -158,6 +159,9 @@ public class Options implements Cloneable, Serializable {
     		}
     		else if (arg.startsWith("model-file:")) {
     			modelFile = arg.split(":")[1];
+    		}
+    		else if (arg.startsWith("init-model:")) {
+    			initModel = arg.split(":")[1];
     		}
     		else if (arg.startsWith("typo-file:")) {
     			typoFile = arg.split(":")[1];

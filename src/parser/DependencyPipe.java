@@ -272,13 +272,14 @@ public class DependencyPipe implements Serializable {
         }
         System.out.println("Done.");
 				
-        Distribution dist = new Distribution(lt, this, options);
-		DependencyInstance[] insts = shuffle(lt, dist);
+        //Distribution dist = new Distribution(lt, this, options);
+		//DependencyInstance[] insts = shuffle(lt, dist);
         //DependencyInstance[] insts = greedyShuffle(lt, dist);
         //DependencyInstance[] tmpinsts = lengthShuffle(lt, dist);
-        //DependencyInstance[] tmpinsts = greedyShuffle2(lt);
+        DependencyInstance[] tmpinsts = greedyShuffle2(lt);
         
-        //DependencyInstance[] insts = dupAndRandom(tmpinsts);
+        DependencyInstance[] insts = dupAndRandom(tmpinsts);
+        //DependencyInstance[] insts = removeUnsup(tmpinsts);
         //DependencyInstance[] insts = new DependencyInstance[options.supSent];
         //for (int i = 0; i < options.supSent; ++i)
         //	insts[i] = tmpinsts[i];
@@ -288,8 +289,17 @@ public class DependencyPipe implements Serializable {
 		return insts;
 	}
     
+    public DependencyInstance[] removeUnsup(DependencyInstance[] lt) {
+    	int size = options.supSent;
+    	DependencyInstance[] tmp = new DependencyInstance[size];
+    	for (int i = 0; i < options.supSent; ++i) {
+    		tmp[i] = lt[i];
+    	}
+    	return tmp;
+    }
+    
     public DependencyInstance[] dupAndRandom(DependencyInstance[] lt) {
-    	int copy = 5;
+    	int copy = (int)((lt.length + 0.0) / options.supSent * 0.01);
     	int size = lt.length + (copy - 1) * options.supSent;
     	DependencyInstance[] tmp = new DependencyInstance[size];
     	for (int i = 0; i < options.supSent; ++i) {
@@ -413,7 +423,7 @@ public class DependencyPipe implements Serializable {
     		}
     		used[maxID] = true;
     		supScore[i] = maxSupScore;
-    		dist.addCount(ret[i], 10.0, true);
+    		dist.addCount(ret[i], (n + 0.0) / options.supSent * 0.1, true);
     	}
 
     	System.out.println("supervised data: " + options.supSent);

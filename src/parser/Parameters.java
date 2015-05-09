@@ -32,6 +32,8 @@ public class Parameters implements Serializable {
 	public transient double[] dFV;
 	public transient double totalLoss;
 	
+	public transient double[] reg;
+	
 	public int updCnt;
 	
 	public Parameters(Options options, DependencyPipe pipe, ParameterNode pn) 
@@ -76,15 +78,15 @@ public class Parameters implements Serializable {
 		
 		double loss = 0.0;
 		for (int i = 1; i < n; ++i)
-			loss += fd.getLoss(pred.heads[i], pred.deplbids[i], gold.heads[i], gold.deplbids[i]);
+			loss += fd.getLoss(pred.heads[i], gold.deplbids[i], gold.heads[i], gold.deplbids[i]);
 		
 		// tensor
 		if (gamma < 1.0) {
 			for (int i = 1; i < n; ++i) {
-				loss -= fd.fn.addGradient(gold.heads[i], i, gold.deplbids[i], 1.0, pn) * (1 - gamma);
-				loss += fd.fn.addGradient(pred.heads[i], i, pred.deplbids[i], -1.0, pn) * (1 - gamma);
-				if (options.learnLabel)
-					Utils.Assert(pred.deplbids[i] == fd.getBestLabel(pred.heads[i], i));
+				loss -= fd.fn.addGradient(gold.heads[i], i, -1, 1.0, pn) * (1 - gamma);
+				loss += fd.fn.addGradient(pred.heads[i], i, -1, -1.0, pn) * (1 - gamma);
+				//if (options.learnLabel)
+				//	Utils.Assert(pred.deplbids[i] == fd.getBestLabel(pred.heads[i], i));
 			}
 		}
 		
@@ -111,9 +113,51 @@ public class Parameters implements Serializable {
 		return loss;
 	}
 	
-	public void batchUpdate() {
-		updCnt++;
+	public double addLabelGradient(DependencyInstance gold, DependencyInstance pred,
+			FeatureData fd) {
+		int n = gold.length;
 		
+		double loss = 0.0;
+		for (int i = 1; i < n; ++i) {
+			Utils.Assert(pred.heads[i] == gold.heads[i]);
+			loss += fd.getLoss(pred.heads[i], pred.deplbids[i], gold.heads[i], gold.deplbids[i]);
+		}
+		
+		// tensor
+		if (gamma < 1.0) {
+			for (int i = 1; i < n; ++i) {
+				loss -= fd.fn.addGradient(gold.heads[i], i, gold.deplbids[i], 1.0, pn) * (1 - gamma);
+				loss += fd.fn.addGradient(pred.heads[i], i, pred.deplbids[i], -1.0, pn) * (1 - gamma);
+				if (options.learnLabel)
+					Utils.Assert(pred.deplbids[i] == fd.getBestLabel(pred.heads[i], i));
+			}
+		}
+		
+		// traditional features
+		FeatureVector dt = null;
+		if (gamma > 0.0) {
+			dt = fd.getLabelFeatureDifference(gold, pred);
+			loss -= dt.dotProduct(params) * gamma;
+			TIntHashSet tmp = new TIntHashSet();
+			for (int i = 0, L = dt.size(); i < L; ++i) {
+				int x = dt.x(i);
+				dFV[x] += dt.value(i);
+				if (!tmp.contains(x)) {
+					if (!pipe.ff.featureIDSet.contains(x)) {
+						pipe.ff.featureIDSet.add(x);
+					}
+					tmp.add(x);
+				}
+			}
+		}
+		
+		totalLoss += loss;
+		
+		return loss;
+	}
+	
+	public void batchUpdate(final int N) {
+		updCnt++;
 		switch (options.updateMode) {
 		case AdaGrad:
 			if (gamma > 0.0) {
@@ -125,10 +169,16 @@ public class Parameters implements Serializable {
 					dFV[i] = 0.0;
 				}
 				*/
+				//System.out.println("lalala");
 				pipe.ff.featureIDSet.forEach(new TIntProcedure() {
 					@Override
 					public boolean execute(int i) {
-						double g = (dFV[i] - options.lambda * params[i]) * gamma;
+						double g = 0.0;
+						double lambda = options.lambda / N * options.batchSize;
+						if (reg != null)
+							g = (dFV[i] - lambda * (params[i] - reg[i])) * gamma;
+						else 
+							g = (dFV[i] - lambda * params[i]) * gamma;
 						sg[i] += g * g;
 						params[i] += adaAlpha / Math.sqrt(sg[i] + adaEps) * g;
 						dFV[i] = 0.0;
@@ -180,8 +230,9 @@ public class Parameters implements Serializable {
 		int n = gold.length;
 		
 		double loss = 0.0;
+		// don't consider labels here
 		for (int i = 1; i < n; ++i)
-			loss += fd.getLoss(pred.heads[i], pred.deplbids[i], gold.heads[i], gold.deplbids[i]);
+			loss += fd.getLoss(pred.heads[i], gold.deplbids[i], gold.heads[i], gold.deplbids[i]);
 		
 		//double loss2 = loss;
 		// compute loss2
@@ -193,10 +244,10 @@ public class Parameters implements Serializable {
 		// tensor
 		if (gamma < 1.0) {
 			for (int i = 1; i < n; ++i) {
-				loss -= fd.fn.addGradient(gold.heads[i], i, gold.deplbids[i], 1.0, pn) * (1 - gamma);
-				loss += fd.fn.addGradient(pred.heads[i], i, pred.deplbids[i], -1.0, pn) * (1 - gamma);
-				if (options.learnLabel)
-					Utils.Assert(pred.deplbids[i] == fd.getBestLabel(pred.heads[i], i));
+				loss -= fd.fn.addGradient(gold.heads[i], i, -1, 1.0, pn) * (1 - gamma);
+				loss += fd.fn.addGradient(pred.heads[i], i, -1, -1.0, pn) * (1 - gamma);
+				//if (options.learnLabel)
+				//	Utils.Assert(pred.deplbids[i] == fd.getBestLabel(pred.heads[i], i));
 				//System.out.println(pred.heads[i] + "\t" + gold.heads[i] + "\t" + pred.deplbids[i] + "\t" + gold.deplbids[i]);
 			}
 		}
@@ -242,7 +293,85 @@ public class Parameters implements Serializable {
 					double lr = Math.min(alpha, C);
 					for (int i = 0, L = dt.size(); i < L; ++i) {
 						int x = dt.x(i);
-						double g = dt.value(i) * gamma * (gold.lang == options.targetLang ? 1.0 : 1.0);
+						double g = dt.value(i) * gamma * (gold.lang == options.targetLang ? 5.0 : 1.0);
+						params[x] += lr * g;
+						total[x] += lr * updCnt * g;
+					}
+				}
+				
+				if (gamma < 1.0)
+					pn.updateMIRA(alpha, updCnt);
+		    		
+				break;
+			default:
+				break;
+			}
+		}
+		
+		return loss;
+	}	
+	
+	public double updateLabel(DependencyInstance gold, DependencyInstance pred,
+			FeatureData fd)
+	{
+		updCnt++;
+		int n = gold.length;
+		
+		double loss = 0.0;
+		// don't consider arcs here
+		for (int i = 1; i < n; ++i) {
+			Utils.Assert(pred.heads[i] == gold.heads[i]);
+			loss += fd.getLoss(pred.heads[i], pred.deplbids[i], gold.heads[i], gold.deplbids[i]);
+		}
+
+		// tensor
+		if (gamma < 1.0) {
+			for (int i = 1; i < n; ++i) {
+				loss -= fd.fn.addGradient(gold.heads[i], i, gold.deplbids[i], 1.0, pn) * (1 - gamma);
+				loss += fd.fn.addGradient(pred.heads[i], i, -pred.deplbids[i], -1.0, pn) * (1 - gamma);
+			}
+		}
+		
+		// traditional features
+		FeatureVector dt = null;
+		if (gamma > 0.0) {
+			dt = fd.getLabelFeatureDifference(gold, pred);
+			loss -= dt.dotProduct(params) * gamma;
+		}
+    	
+    	//Utils.Assert(Math.abs(loss - loss2) < 1e-6);
+		
+		// update
+		if (loss > 0) {
+			switch (options.updateMode) {
+			case AdaGrad:
+				if (gamma > 0.0) {
+					for (int i = 0, L = dt.size(); i < L; ++i) {
+						int x = dt.x(i);
+						double g = dt.value(i) * gamma;
+						sg[x] += g * g;
+						params[x] += adaAlpha / Math.sqrt(sg[x] + adaEps) * g;
+					}
+				}
+				
+				if (gamma < 1.0)
+					pn.updateAda();
+				
+				break;
+			case MIRA:
+				double l2norm = gamma < 1.0 ? pn.gradientl2Norm() * (1 - gamma) * (1 - gamma) : 0.0;
+				l2norm += gamma > 0.0 ? dt.Squaredl2NormUnsafe() * gamma * gamma : 0.0;
+				double alpha = loss / l2norm;
+		        //System.out.println(alpha + " " + l2norm);
+		        //Utils.block();
+				
+				if (gamma > 0.0) {
+					//System.out.println(alpha + " " + C);
+					//Utils.block();
+					double lr = Math.min(alpha, C);
+					for (int i = 0, L = dt.size(); i < L; ++i) {
+						int x = dt.x(i);
+						double g = dt.value(i) * gamma * (gold.lang == options.targetLang ? 5.0 : 1.0);
 						params[x] += lr * g;
 						total[x] += lr * updCnt * g;
 					}
