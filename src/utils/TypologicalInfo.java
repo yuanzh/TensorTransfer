@@ -27,6 +27,8 @@ public class TypologicalInfo {
 	public int[][] lang2Feature;
 	public int[] numberOfValues;
 	
+	public double[][] typoVec;
+	
 	public TypologicalInfo(Options options) throws IOException {
 		this.options = options;
 		loadData(options.typoFile);
@@ -49,12 +51,14 @@ public class TypologicalInfo {
 		for (int i = 0; i < featureNum; ++i)
 			numberOfValues[i] = Integer.parseInt(data[i]);
 		
-		bit = Utils.log2(familyNum + classNum + 1);
+		//bit = Utils.log2(familyNum + classNum + 1);
+		bit = Utils.log2(langNum + classNum + 1);
 		
 		Utils.Assert(langNum == options.langString.length);
 		lang2Class = new int[langNum];
 		lang2Family = new int[langNum];
 		lang2Feature = new int[langNum][featureNum];
+		typoVec = new double[langNum][langNum];
 		
 		for (int i = 0; i < langNum; ++i) {
 			data = br.readLine().split("\\s+");
@@ -64,6 +68,15 @@ public class TypologicalInfo {
 			}
 			lang2Class[i] = Integer.parseInt(data[1 + featureNum]);
 			lang2Family[i] = Integer.parseInt(data[1 + featureNum + 1]);
+		}
+		
+		for (int i = 0; i < langNum; ++i) {
+			data = br.readLine().trim().split("\\s+");
+			Utils.Assert(data.length == langNum);
+			for (int j = 0; j < langNum; ++j)
+				typoVec[i][j] = Double.parseDouble(data[j]);
+			//System.out.println(options.langString[i] + " " + typoVec[i][0]);
+			Utils.normalize(typoVec[i]);
 		}
 		br.close();
 	}
@@ -82,5 +95,9 @@ public class TypologicalInfo {
 	
 	public int getNumberOfValues(TypoFeatureType type) {
 		return numberOfValues[type.ordinal()];
+	}
+	
+	public double[] getTypoVec(int l) {
+		return typoVec[l];
 	}
 }

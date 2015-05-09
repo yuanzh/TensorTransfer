@@ -14,6 +14,7 @@ import parser.tensor.ParameterNode;
 
 import utils.Dictionary;
 import utils.DictionarySet;
+import utils.Distribution;
 import utils.TypologicalInfo;
 import utils.Utils;
 
@@ -83,9 +84,9 @@ public class DependencyPipe implements Serializable {
         
 		int cnt = 0;
         for (int l = 0; l < options.langString.length; ++l) {
-        	if (l != options.targetLang)
+        	//if (l == options.targetLang)
         	//if (!options.langString[l].equals("es"))
-        		continue;
+        	//	continue;
         	
         	String file = constructTrainFileName(l);
         	System.out.print(" " + options.langString[l] + " ");
@@ -187,9 +188,9 @@ public class DependencyPipe implements Serializable {
 		HashSet<String> posTagSet = new HashSet<String>();
 		int cnt = 0;
         for (int l = 0; l < options.langString.length; ++l) {
-        	if (l != options.targetLang)
+        	//if (l == options.targetLang)
         	//if (!options.langString[l].equals("es"))
-        		continue;
+        	//	continue;
         	
         	String file = constructTrainFileName(l);
         	System.out.print(" " + options.langString[l] + " ");
@@ -223,7 +224,7 @@ public class DependencyPipe implements Serializable {
 
 		System.out.printf("Num of CONLL fine POS tags: %d %d%n", posTagSet.size(), dictionaries.size(POS));
 		System.out.printf("Num of labels: %d%n", types.length);
-		System.out.printf("Num of Syntactic Features: %d%n", ff.featureHashSet.size());
+		System.out.printf("Num of Syntactic Features: %d %d%n", ff.featureHashSet.size(), ff.featureIDSet.size());
 	}
 
     public void closeAlphabets() 
@@ -240,9 +241,9 @@ public class DependencyPipe implements Serializable {
 		ArrayList<DependencyInstance> lt = new ArrayList<DependencyInstance>();
 		int cnt = 0;
         for (int l = 0; l < options.langString.length; ++l) {
-        	if (l != options.targetLang)
+        	//if (l == options.targetLang)
         	//if (!options.langString[l].equals("es"))
-        		continue;
+        	//	continue;
         	
         	String file = constructTrainFileName(l);
         	System.out.print(" " + options.langString[l] + " ");
@@ -271,28 +272,250 @@ public class DependencyPipe implements Serializable {
         }
         System.out.println("Done.");
 				
-		DependencyInstance[] insts = shuffle(lt);
+        Distribution dist = new Distribution(lt, this, options);
+		DependencyInstance[] insts = shuffle(lt, dist);
+        //DependencyInstance[] insts = greedyShuffle(lt, dist);
+        //DependencyInstance[] tmpinsts = lengthShuffle(lt, dist);
+        //DependencyInstance[] tmpinsts = greedyShuffle2(lt);
+        
+        //DependencyInstance[] insts = dupAndRandom(tmpinsts);
+        //DependencyInstance[] insts = new DependencyInstance[options.supSent];
+        //for (int i = 0; i < options.supSent; ++i)
+        //	insts[i] = tmpinsts[i];
 		
 		System.out.printf("%d [%d ms]%n", insts.length, System.currentTimeMillis() - start);
 	    
 		return insts;
 	}
+    
+    public DependencyInstance[] dupAndRandom(DependencyInstance[] lt) {
+    	int copy = 5;
+    	int size = lt.length + (copy - 1) * options.supSent;
+    	DependencyInstance[] tmp = new DependencyInstance[size];
+    	for (int i = 0; i < options.supSent; ++i) {
+    		for (int j = 0; j < copy; ++j) {
+    			tmp[i * copy + j] = lt[i];
+    		}
+    	}
+    	for (int i = options.supSent; i < lt.length; ++i)
+    		tmp[options.supSent * (copy - 1) + i] = lt[i];
+    	
+    	Random r = new Random(0);
+    	boolean[] used = new boolean[size];
+    	DependencyInstance[] ret = new DependencyInstance[size];
+    	int id = 0;
+    	for (int i = 0; i < size; ++i) {
+    		id = (id + r.nextInt(size)) % size;
+    		while (used[id]) {
+    			id = (id + 1) % size;
+    		}
+    		used[id] = true;
+    		ret[i] = tmp[id];
+    	}
+    	return ret;
+    }
+    
+    public DependencyInstance[] greedyShuffle(ArrayList<DependencyInstance> lt, Distribution dist) {
+    	int size = lt.size();
+    	int supNum = 0;
+    	for (int i = 0; i < size; ++i)
+    		if (lt.get(i).lang == options.targetLang)
+    			supNum++;
+    	
+    	int n = options.maxNumSent == -1 ? lt.size() - supNum + options.supSent : Math.min(options.maxNumSent, lt.size() - supNum + options.supSent);
+    	boolean[] used = new boolean[size];
+    	DependencyInstance[] ret = new DependencyInstance[n];
+    	
+    	// get supervised data
+    	double[] supScore = new double[options.supSent];
+    	Arrays.fill(supScore, Double.NEGATIVE_INFINITY);
+    	for (int i = 0; i < size; ++i) {
+    		if (lt.get(i).lang != options.targetLang)
+    			continue;
+    		double score = dist.getScore(lt.get(i));
+    		int j = 0;
+    		for (; j < options.supSent; ++j)
+    			if (score > supScore[j] + 1e-8)
+    				break;
+    		if (j < options.supSent) {
+    			for (int k = options.supSent - 1; k > j; --k) {
+    				supScore[k] = supScore[k - 1];
+    				ret[k] = ret[k - 1];
+    			}
+    			supScore[j] = score;
+    			ret[j] = lt.get(i);
+    			used[i] = true;
+    		}
+    	}
+    	System.out.println("supervised data: " + options.supSent);
+    	for (int i = 0; i < options.supSent; ++i)
+    		System.out.print("  " + supScore[i]);
+    	System.out.println();
+    	
+    	//get unsupervised data
+    	Random r = new Random(0);
+    	int id = 0;
+    	for (int i = options.supSent; i < n; ++i) {
+    		id = (id + r.nextInt(size)) % size;
+    		while (used[id] || lt.get(id).lang == options.targetLang) {
+    			id = (id + 1) % size;
+    		}
+    		used[id] = true;
+    		ret[i] = lt.get(id);
+    	}
+    
+    	return ret;
+    }
 	
-    public DependencyInstance[] shuffle(ArrayList<DependencyInstance> lt) {
-    	int n = options.maxNumSent == -1 ? lt.size() : Math.min(options.maxNumSent, lt.size());
-    	boolean[] used = new boolean[n];
+    public DependencyInstance[] greedyShuffle2(ArrayList<DependencyInstance> lt) {
+    	ArrayList<DependencyInstance> lt2 = new ArrayList<DependencyInstance>();
+    	int size = lt.size();
+    	int supNum = 0;
+    	for (int i = 0; i < size; ++i)
+    		if (lt.get(i).lang == options.targetLang) {
+    			supNum++;
+    			lt2.add(lt.get(i));
+    		}
+    	
+    	int n = options.maxNumSent == -1 ? lt.size() - supNum + options.supSent : Math.min(options.maxNumSent, lt.size() - supNum + options.supSent);
+    	boolean[] used = new boolean[size];
+    	DependencyInstance[] ret = new DependencyInstance[n];
+    	
+    	//get unsupervised data
+    	Random r = new Random(0);
+    	int id = 0;
+    	for (int i = options.supSent; i < n; ++i) {
+    		id = (id + r.nextInt(size)) % size;
+    		while (used[id] || lt.get(id).lang == options.targetLang) {
+    			id = (id + 1) % size;
+    		}
+    		used[id] = true;
+    		ret[i] = lt.get(id);
+    		lt2.add(lt.get(id));
+    	}
+    	
+    	Distribution dist = new Distribution(lt2, this, options);
+    
+    	// get supervised data
+    	double[] supScore = new double[options.supSent];
+    	for (int i = 0; i < options.supSent; ++i) {
+    		double maxSupScore = Double.NEGATIVE_INFINITY;
+    		int maxID = -1;
+    		for (int j = 0; j < size; ++j) {
+        		if (lt.get(j).lang != options.targetLang || used[j])
+        			continue;
+        		double score = dist.getScore(lt.get(j));
+        		if (score > maxSupScore + 1e-6) {
+        			maxSupScore = score;
+        			ret[i] = lt.get(j);
+        			maxID = j;
+        		}
+    		}
+    		used[maxID] = true;
+    		supScore[i] = maxSupScore;
+    		dist.addCount(ret[i], 10.0, true);
+    	}
+
+    	System.out.println("supervised data: " + options.supSent);
+    	for (int i = 0; i < options.supSent; ++i)
+    		System.out.print("  " + supScore[i]);
+    	System.out.println();
+    	
+    	return ret;
+    }
+	
+    public DependencyInstance[] lengthShuffle(ArrayList<DependencyInstance> lt, Distribution dist) {
+    	int size = lt.size();
+    	int supNum = 0;
+    	for (int i = 0; i < size; ++i)
+    		if (lt.get(i).lang == options.targetLang)
+    			supNum++;
+    	
+    	int n = options.maxNumSent == -1 ? lt.size() - supNum + options.supSent : Math.min(options.maxNumSent, lt.size() - supNum + options.supSent);
+    	boolean[] used = new boolean[size];
+    	DependencyInstance[] ret = new DependencyInstance[n];
+    	
+    	// get supervised data
+    	int[] len = new int[options.supSent];
+    	Arrays.fill(len, 0);
+    	for (int i = 0; i < size; ++i) {
+    		if (lt.get(i).lang != options.targetLang)
+    			continue;
+    		int length = lt.get(i).length;
+    		int j = 0;
+    		for (; j < options.supSent; ++j)
+    			if (length > len[j])
+    				break;
+    		if (j < options.supSent) {
+    			for (int k = options.supSent - 1; k > j; --k) {
+    				len[k] = len[k - 1];
+    				ret[k] = ret[k - 1];
+    			}
+    			len[j] = length;
+    			ret[j] = lt.get(i);
+    			used[i] = true;
+    		}
+    	}
+    	System.out.println("supervised data: " + options.supSent);
+    	for (int i = 0; i < options.supSent; ++i)
+    		System.out.print("  " + dist.getScore(ret[i]));
+    	System.out.println();
+    	
+    	//get unsupervised data
+    	Random r = new Random(0);
+    	int id = 0;
+    	for (int i = options.supSent; i < n; ++i) {
+    		id = (id + r.nextInt(size)) % size;
+    		while (used[id] || lt.get(id).lang == options.targetLang) {
+    			id = (id + 1) % size;
+    		}
+    		used[id] = true;
+    		ret[i] = lt.get(id);
+    	}
+    
+    	return ret;
+    }
+	
+    public DependencyInstance[] shuffle(ArrayList<DependencyInstance> lt, Distribution dist) {
+    	int size = lt.size();
+    	int supNum = 0;
+    	for (int i = 0; i < size; ++i)
+    		if (lt.get(i).lang == options.targetLang)
+    			supNum++;
+    	
+    	int n = options.maxNumSent == -1 ? lt.size() - supNum + options.supSent : Math.min(options.maxNumSent, lt.size() - supNum + options.supSent);
+
+    	boolean[] used = new boolean[size];
     	DependencyInstance[] ret = new DependencyInstance[n];
     	int id = 0;
     	Random r = new Random(0);
-    	for (int i = 0; i < n; ++i) {
-    		id = (id + r.nextInt(n)) % n;
-    		while (used[id]) {
-    			id = (id + 1) % n;
+    	int supCnt = 0;
+    	double[] score = new double[options.supSent];
+    	for (int i = 0; i < options.supSent; ++i) {
+    		id = (id + r.nextInt(size)) % size;
+    		while (used[id] || lt.get(id).lang != options.targetLang) {
+    			id = (id + 1) % size;
     		}
+   			score[supCnt] = dist.getScore(lt.get(id));
+   			supCnt++;
     		//id = i;
     		used[id] = true;
     		ret[i] = lt.get(id);
     	}
+    	for (int i = options.supSent; i < n; ++i) {
+    		//System.out.print(" " + i + " ");
+    		id = (id + r.nextInt(size)) % size;
+    		while (used[id] || lt.get(id).lang == options.targetLang) {
+    			//System.out.print(lt.get(id).lang + "/" + id);
+    			id = (id + 1) % size;
+    		}
+    		used[id] = true;
+    		ret[i] = lt.get(id);
+    	}
+    	System.out.println("supervised data: " + supCnt);
+    	for (int i = 0; i < options.supSent; ++i)
+    		System.out.print("  " + score[i]);
+    	System.out.println();
     	return ret;
     }
 

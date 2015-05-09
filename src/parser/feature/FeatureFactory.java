@@ -58,7 +58,7 @@ public class FeatureFactory implements Serializable {
 	
 	private boolean stoppedGrowth;
 	public transient TLongHashSet featureHashSet;
-	//public transient TIntHashSet featureIDSet;
+	public transient TIntHashSet featureIDSet;
 
 	public FeatureFactory(Options options) {
 		this.options = options;
@@ -66,7 +66,7 @@ public class FeatureFactory implements Serializable {
 		//numArcFeats = 0;
 		stoppedGrowth = false;
 		featureHashSet = new TLongHashSet(100000);
-		//featureIDSet = new TIntHashSet(100000);
+		featureIDSet = new TIntHashSet(100000);
 	}
 
 	public void closeAlphabets()
@@ -367,10 +367,10 @@ public class FeatureFactory implements Serializable {
     	
     	int code = 0;
     	int d = ParameterNode.d;
-    	//int dir = binDist < d ? 0 : 1;		//0: left; 1: right
-    	//int offset = 4;
-    	int dir = binDist;
-    	int offset = 2 * d * 2;
+    	int dir = binDist < d ? 0 : 1;		//0: left; 1: right
+    	int offset = 4;
+    	//int dir = binDist;
+    	//int offset = 2 * d * 2;
     	if (mp == POS_NOUN) {
     		if (label == LABEL_SBJ) {
     			int v = typo.getFeature(lang)[TypoFeatureType.SV.ordinal()];
@@ -492,10 +492,10 @@ public class FeatureFactory implements Serializable {
     	
     	int code = 0;
     	int d = ParameterNode.d;
-    	//int dir = binDist < d ? 0 : 1;		//0: left; 1: right
-    	//int offset = 2;
-    	int dir = binDist;
-    	int offset = 2 * d;
+    	int dir = binDist < d ? 0 : 1;		//0: left; 1: right
+    	int offset = 2;
+    	//int dir = binDist;
+    	//int offset = 2 * d;
     	
     	if (hp == POS_ADP && mp == POS_NOUN) {
     		int v = typo.getFeature(lang)[TypoFeatureType.Prep.ordinal()];
@@ -717,7 +717,21 @@ public class FeatureFactory implements Serializable {
 		
 		int attDist = getBinnedDistance(h - m) + 1;
 		int c = ((typo.getClass(inst.lang) + 1) << numArcFeatBits) << flagBits;
-		int f = ((typo.getFamily(inst.lang) + typo.classNum + 1) << numArcFeatBits) << flagBits;
+		//int f = ((typo.getFamily(inst.lang) + typo.classNum + 1) << numArcFeatBits) << flagBits;
+
+		int typoVecDim = 1;
+		int[] f = new int[typoVecDim];
+		double[] v = new double[typoVecDim];
+		f[0] = ((typo.getFamily(inst.lang) + typo.classNum + 1) << numArcFeatBits) << flagBits;
+		v[0] = 1.0;
+
+//		int typoVecDim = options.typoVecDim;
+//		int[] f = new int[options.typoVecDim];
+//		double[] v = typo.getTypoVec(inst.lang);
+//		for (int i = 0; i < options.typoVecDim; ++i) {
+//			f[i] = ((i + typo.classNum + 1) << numArcFeatBits) << flagBits;
+//		}
+
 		int n = inst.length;
 		
 		int HP = pos[h] + 1;
@@ -729,82 +743,130 @@ public class FeatureFactory implements Serializable {
 		
     	code = createArcCodePP(Arc.ATTDIST, 0, 0);
     	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	//addArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
     	
     	code = createArcCodePP(Arc.HP, HP, 0);
     	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
+    	//addArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	//addArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePP(Arc.MP, MP, 0);
     	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
+    	//addArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	//addArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPP(Arc.HP_MP, HP, MP, 0);
     	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
+    	//addArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	//addArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPP(Arc.HPp_HP_MP, HPp, HP, MP, 0);
     	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
+    	//addArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	//addArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPP(Arc.HP_HPn_MP, HP, HPn, MP, 0);
     	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
+    	//addArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	//addArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPP(Arc.HP_MPp_MP, HP, MPp, MP, 0);
     	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
+    	//addArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	//addArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPP(Arc.HP_MP_MPn, HP, MP, MPn, 0);
     	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
+    	//addArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	//addArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn, 0);
     	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
+    	//addArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	//addArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn, 0);
     	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
+    	//addArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	//addArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP, 0);
     	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
+    	//addArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	//addArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP, 0);
     	addArcFeature(code | c, fv);
-    	addArcFeature(code | f, fv);
+    	//addArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addArcFeature(code | c | attDist, fv);
-    	addArcFeature(code | f | attDist, fv);
+    	//addArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	int large = Math.max(h, m);
     	int small = Math.min(h, m);
     	
-    	for (int i = small + 1; i < large; ++i) {
-    		int BP = pos[i] + 1;
+    	for (int z = small + 1; z < large; ++z) {
+    		int BP = pos[z] + 1;
         	code = createArcCodePPPP(Arc.HP_BP_MP, HP, BP, MP, 0);
         	addArcFeature(code | c, fv);
-        	addArcFeature(code | f, fv);
+        	//addArcFeature(code | f, fv);
+        	for (int i = 0; i < typoVecDim; ++i)
+        		addArcFeature(code | f[i], v[i], fv);
     	}
     }
     
@@ -963,7 +1025,20 @@ public class FeatureFactory implements Serializable {
 		int tid = label << 4;
 		int attDist = getBinnedDistance(h - m) + 1;
 		int c = ((typo.getClass(inst.lang) + 1) << numArcFeatBits) << flagBits;
-		int f = ((typo.getFamily(inst.lang) + typo.classNum + 1) << numArcFeatBits) << flagBits;
+		
+		int typoVecDim = 1;
+		int[] f = new int[typoVecDim];
+		double[] v = new double[typoVecDim];
+		f[0] = ((typo.getFamily(inst.lang) + typo.classNum + 1) << numArcFeatBits) << flagBits;
+		v[0] = 1.0;
+		
+//		int typoVecDim = options.typoVecDim;
+//		int[] f = new int[options.typoVecDim];
+//		double[] v = typo.getTypoVec(inst.lang);
+//		for (int i = 0; i < options.typoVecDim; ++i) {
+//			f[i] = ((i + typo.classNum + 1) << numArcFeatBits) << flagBits;
+//		}
+		
 		int n = inst.length;
 		
 		int HP = pos[h] + 1;
@@ -973,85 +1048,134 @@ public class FeatureFactory implements Serializable {
 		int MPp = (m > 0 ? pos[m - 1] : TOKEN_START) + 1;
 		int MPn = (m < n - 1 ? pos[m + 1] : TOKEN_END) + 1;
 		
-    	code = createArcCodePP(Arc.ATTDIST, 0, 0) | tid;
-    	addLabeledArcFeature(code | c | attDist, fv);
-    	addLabeledArcFeature(code | f | attDist, fv);
-    	
     	code = createArcCodePP(Arc.HP, HP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	addLabeledArcFeature(code | f, fv);
+    	//addLabeledArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	addLabeledArcFeature(code | f | attDist, fv);
+    	//addLabeledArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePP(Arc.MP, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	addLabeledArcFeature(code | f, fv);
+    	//addLabeledArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	addLabeledArcFeature(code | f | attDist, fv);
+    	//addLabeledArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPP(Arc.HP_MP, HP, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	addLabeledArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
+    	//addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	addLabeledArcFeature(code | f | attDist, fv);
+    	//addLabeledArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPP(Arc.HPp_HP_MP, HPp, HP, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	addLabeledArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
+    	//addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	addLabeledArcFeature(code | f | attDist, fv);
+    	//addLabeledArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPP(Arc.HP_HPn_MP, HP, HPn, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	addLabeledArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
+    	//addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	addLabeledArcFeature(code | f | attDist, fv);
+    	//addLabeledArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPP(Arc.HP_MPp_MP, HP, MPp, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	addLabeledArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
+    	//addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	addLabeledArcFeature(code | f | attDist, fv);
+    	//addLabeledArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPP(Arc.HP_MP_MPn, HP, MP, MPn, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	addLabeledArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
+    	//addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	addLabeledArcFeature(code | f | attDist, fv);
+    	//addLabeledArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
+/*
+    	code = createArcCodePP(Arc.ATTDIST, 0, 0) | tid;
+    	addLabeledArcFeature(code | c | attDist, fv);
+    	//addLabeledArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	addLabeledArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
+    	//addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	addLabeledArcFeature(code | f | attDist, fv);
+    	//addLabeledArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	addLabeledArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
+    	//addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	addLabeledArcFeature(code | f | attDist, fv);
+    	//addLabeledArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	addLabeledArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
+    	//addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	addLabeledArcFeature(code | f | attDist, fv);
+    	//addLabeledArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	code = createArcCodePPPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP, 0) | tid;
     	addLabeledArcFeature(code | c, fv);
-    	addLabeledArcFeature(code | f, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i], v[i], fv);
+    	//addLabeledArcFeature(code | f, fv);
     	addLabeledArcFeature(code | c | attDist, fv);
-    	addLabeledArcFeature(code | f | attDist, fv);
+    	//addLabeledArcFeature(code | f | attDist, fv);
+    	for (int i = 0; i < typoVecDim; ++i)
+    		addArcFeature(code | f[i] | attDist, v[i], fv);
 
     	int large = Math.max(h, m);
     	int small = Math.min(h, m);
     	
-    	for (int i = small + 1; i < large; ++i) {
-    		int BP = pos[i] + 1;
+    	for (int z = small + 1; z < large; ++z) {
+    		int BP = pos[z] + 1;
         	code = createArcCodePPPP(Arc.HP_BP_MP, HP, BP, MP, 0) | tid;
         	addLabeledArcFeature(code | c, fv);
-        	addLabeledArcFeature(code | f, fv);
-    	}
+        	//addLabeledArcFeature(code | f, fv);
+        	for (int i = 0; i < typoVecDim; ++i)
+        		addArcFeature(code | f[i], v[i], fv);
+   		}
+   		*/
     }
     
     public void addBareFeatures (DependencyInstance inst, int h, int m, int label, FeatureVector fv) {
@@ -1231,6 +1355,7 @@ public class FeatureFactory implements Serializable {
     	mat.addEntry(id, 1.0);
     	if (!stoppedGrowth) {
     		featureHashSet.add(code);
+    		featureIDSet.add(id);
     	}
     }
     
@@ -1239,8 +1364,10 @@ public class FeatureFactory implements Serializable {
     	int id = (int)((hash < 0 ? -hash : hash) % numArcFeats);
     	//int id = ((hash ^ (hash >> 31)) - (hash >> 31)) % 115911564;    	
     	mat.addEntry(id, value);
-    	if (!stoppedGrowth)
+    	if (!stoppedGrowth) {
     		featureHashSet.add(code);
+    		featureIDSet.add(id);
+    	}
     }
     
     public final void addLabeledArcFeature(long code, FeatureVector mat) {
@@ -1248,8 +1375,10 @@ public class FeatureFactory implements Serializable {
     	int id = (int)((hash < 0 ? -hash : hash) % numLabeledArcFeats);
     	//int id = ((hash ^ (hash >> 31)) - (hash >> 31)) % 115911564;    	
     	mat.addEntry(id, 1.0);
-    	if (!stoppedGrowth)
+    	if (!stoppedGrowth) {
     		featureHashSet.add(code);
+    		featureIDSet.add(id);
+    	}
     }
     
     public final void addLabeledArcFeature(long code, double value, FeatureVector mat) {
@@ -1257,8 +1386,10 @@ public class FeatureFactory implements Serializable {
     	int id = (int)((hash < 0 ? -hash : hash) % numLabeledArcFeats);
     	//int id = ((hash ^ (hash >> 31)) - (hash >> 31)) % 115911564;    	
     	mat.addEntry(id, value);
-    	if (!stoppedGrowth)
+    	if (!stoppedGrowth) {
     		featureHashSet.add(code);
+    		featureIDSet.add(id);
+    	}
     }
     
     // fill tensor parameters
@@ -1901,11 +2032,11 @@ public class FeatureFactory implements Serializable {
     		else if (temp == Arc.SV_NOUN.ordinal()) {
     			extractArcCodeP(code, x);
     			Utils.Assert(x[0] > 0);
-    			//Utils.Assert(binDist - 1 < 2);
+    			Utils.Assert(binDist > 0 && binDist - 1 < 2);
     			Utils.Assert(label - 1 == LABEL_SBJ || label - 1 == LABEL_SBJPASS);
     			int v = x[0] - 1;
     			int dir = binDist - 1;
-    			int offset = 2 * d * 2;
+    			int offset = 2 * 2;
     			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.SV));
     			head = -1;
     			mod = -1;
@@ -1922,11 +2053,11 @@ public class FeatureFactory implements Serializable {
     		else if (temp == Arc.SV_PRON.ordinal()) {
     			extractArcCodeP(code, x);
     			Utils.Assert(x[0] > 0);
-    			//Utils.Assert(binDist - 1 < 2);
+    			Utils.Assert(binDist > 0 && binDist - 1 < 2);
     			Utils.Assert(label - 1 == LABEL_SBJ || label - 1 == LABEL_SBJPASS);
     			int v = x[0] - 1;
     			int dir = binDist - 1;
-    			int offset = 2 * d * 2;
+    			int offset = 2 * 2;
     			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.SV));
     			head = -1;
     			mod = -1;
@@ -1943,11 +2074,11 @@ public class FeatureFactory implements Serializable {
     		else if (temp == Arc.VO_NOUN.ordinal()) {
     			extractArcCodeP(code, x);
     			Utils.Assert(x[0] > 0);
-    			//Utils.Assert(binDist - 1 < 2);
+    			Utils.Assert(binDist > 0 && binDist - 1 < 2);
     			Utils.Assert(label - 1 == LABEL_DOBJ || label - 1 == LABEL_IOBJ);
     			int v = x[0] - 1;
     			int dir = binDist - 1;
-    			int offset = 2 * d * 2;
+    			int offset = 2 * 2;
     			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.VO));
     			head = -1;
     			mod = -1;
@@ -1964,11 +2095,11 @@ public class FeatureFactory implements Serializable {
     		else if (temp == Arc.VO_PRON.ordinal()) {
     			extractArcCodeP(code, x);
     			Utils.Assert(x[0] > 0);
-    			//Utils.Assert(binDist - 1 < 2);
+    			Utils.Assert(binDist > 0 && binDist - 1 < 2);
     			Utils.Assert(label - 1 == LABEL_DOBJ || label - 1 == LABEL_IOBJ);
     			int v = x[0] - 1;
     			int dir = binDist - 1;
-    			int offset = 2 * d * 2;
+    			int offset = 2 * 2;
     			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.VO));
     			head = -1;
     			mod = -1;
@@ -1985,10 +2116,10 @@ public class FeatureFactory implements Serializable {
     		else if (temp == Arc.ADP_NOUN.ordinal()) {
     			extractArcCodeP(code, x);
     			Utils.Assert(x[0] > 0);
-    			//Utils.Assert(binDist - 1 < 2);
+    			Utils.Assert(binDist > 0 && binDist - 1 < 2);
     			int v = x[0] - 1;
     			int dir = binDist - 1;
-    			int offset = 2 * d;
+    			int offset = 2;
     			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.Prep));
     			head = -1;
     			mod = -1;
@@ -2005,10 +2136,10 @@ public class FeatureFactory implements Serializable {
     		else if (temp == Arc.ADP_PRON.ordinal()) {
     			extractArcCodeP(code, x);
     			Utils.Assert(x[0] > 0);
-    			//Utils.Assert(binDist - 1 < 2);
+    			Utils.Assert(binDist > 0 && binDist - 1 < 2);
     			int v = x[0] - 1;
     			int dir = binDist - 1;
-    			int offset = 2 * d;
+    			int offset = 2;
     			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.Prep));
     			head = -1;
     			mod = -1;
@@ -2025,10 +2156,10 @@ public class FeatureFactory implements Serializable {
     		else if (temp == Arc.GEN.ordinal()) {
     			extractArcCodeP(code, x);
     			Utils.Assert(x[0] > 0);
-    			//Utils.Assert(binDist - 1 < 2);
+    			Utils.Assert(binDist > 0 && binDist - 1 < 2);
     			int v = x[0] - 1;
     			int dir = binDist - 1;
-    			int offset = 2 * d;
+    			int offset = 2;
     			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.Gen));
     			head = -1;
     			mod = -1;
@@ -2045,10 +2176,10 @@ public class FeatureFactory implements Serializable {
     		else if (temp == Arc.ADJ.ordinal()) {
     			extractArcCodeP(code, x);
     			Utils.Assert(x[0] > 0);
-    			//Utils.Assert(binDist - 1 < 2);
+    			Utils.Assert(binDist > 0 && binDist - 1 < 2);
     			int v = x[0] - 1;
     			int dir = binDist - 1;
-    			int offset = 2 * d;
+    			int offset = 2;
     			Utils.Assert(v < typo.getNumberOfValues(TypoFeatureType.Adj));
     			head = -1;
     			mod = -1;

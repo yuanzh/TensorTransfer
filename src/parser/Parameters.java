@@ -1,5 +1,7 @@
 package parser;
 
+import gnu.trove.procedure.TIntProcedure;
+import gnu.trove.set.hash.TIntHashSet;
 import gnu.trove.set.hash.TLongHashSet;
 
 import java.io.Serializable;
@@ -91,8 +93,16 @@ public class Parameters implements Serializable {
 		if (gamma > 0.0) {
 			dt = fd.getFeatureDifference(gold, pred);
 			loss -= dt.dotProduct(params) * gamma;
+			TIntHashSet tmp = new TIntHashSet();
 			for (int i = 0, L = dt.size(); i < L; ++i) {
-				dFV[dt.x(i)] += dt.value(i);
+				int x = dt.x(i);
+				dFV[x] += dt.value(i);
+				if (!tmp.contains(x)) {
+					if (!pipe.ff.featureIDSet.contains(x)) {
+						pipe.ff.featureIDSet.add(x);
+					}
+					tmp.add(x);
+				}
 			}
 		}
 		
@@ -107,12 +117,25 @@ public class Parameters implements Serializable {
 		switch (options.updateMode) {
 		case AdaGrad:
 			if (gamma > 0.0) {
+				/*
 				for (int i = 0; i < size; ++i) {
 					double g = (dFV[i] - options.lambda * params[i]) * gamma;
 					sg[i] += g * g;
 					params[i] += adaAlpha / Math.sqrt(sg[i] + adaEps) * g;
 					dFV[i] = 0.0;
 				}
+				*/
+				pipe.ff.featureIDSet.forEach(new TIntProcedure() {
+					@Override
+					public boolean execute(int i) {
+						double g = (dFV[i] - options.lambda * params[i]) * gamma;
+						sg[i] += g * g;
+						params[i] += adaAlpha / Math.sqrt(sg[i] + adaEps) * g;
+						dFV[i] = 0.0;
+						
+						return true;
+					}
+				});
 			}
 			
 			if (gamma < 1.0)
@@ -219,7 +242,7 @@ public class Parameters implements Serializable {
 					double lr = Math.min(alpha, C);
 					for (int i = 0, L = dt.size(); i < L; ++i) {
 						int x = dt.x(i);
-						double g = dt.value(i) * gamma;
+						double g = dt.value(i) * gamma * (gold.lang == options.targetLang ? 1.0 : 1.0);
 						params[x] += lr * g;
 						total[x] += lr * updCnt * g;
 					}

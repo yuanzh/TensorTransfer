@@ -228,7 +228,7 @@ public class ParameterNode implements Serializable {
 			ParameterNode arc = delexical.node[2];
 			//int[] dim2 = {pipe.typo.getNumberOfValues(TypoFeatureType.SV) * (2 + 2 * d), 2 * (1 + 2 * d),
 			//		pipe.typo.getNumberOfValues(TypoFeatureType.VO) * (2 + 2 * d), 2 * (1 + 2 * d)};
-			int offset = 2 * d * 2;
+			int offset = 2 * 2;
 			int[] dim2 = {pipe.typo.getNumberOfValues(TypoFeatureType.SV) * offset,	// NOUN,
 					pipe.typo.getNumberOfValues(TypoFeatureType.SV) * offset, // PRON
 					pipe.typo.getNumberOfValues(TypoFeatureType.VO) * offset, // NOUN
@@ -250,7 +250,7 @@ public class ParameterNode implements Serializable {
 			//int[] dim4 = {pipe.typo.getNumberOfValues(TypoFeatureType.Prep) * (2 + 2 * d), 2 * (1 + 2 * d),
 			//		pipe.typo.getNumberOfValues(TypoFeatureType.Gen) * (2 + 2 * d), 2 * (1 + 2 * d),
 			//		pipe.typo.getNumberOfValues(TypoFeatureType.Adj) * (2 + 2 * d), 2 * (1 + 2 * d)};
-			offset = 2 * d;
+			offset = 2;
 			int[] dim4 = {pipe.typo.getNumberOfValues(TypoFeatureType.Prep) * offset, // NOUN
 					pipe.typo.getNumberOfValues(TypoFeatureType.Prep) * offset, // PRON,
 					pipe.typo.getNumberOfValues(TypoFeatureType.Gen) * offset,

@@ -49,6 +49,7 @@ public class Options implements Cloneable, Serializable {
 	public String typoFile = "typo.txt";
     
 	public int maxNumSent = -1;
+	public int supSent = 50; 
 	public int maxNumIters = 15;
 	
 	//public LearningMode learningMode = LearningMode.Basic;
@@ -79,7 +80,7 @@ public class Options implements Cloneable, Serializable {
 	
 	// batch
 	public int batchSize = 100;		// batch size
-	public double lambda = 1.0;	// regularization
+	public double lambda = 0.1;	// regularization
 	public double tensorLambda = 0.1;
 	public boolean useBatch = false;
 	
@@ -98,6 +99,7 @@ public class Options implements Cloneable, Serializable {
 	public boolean useTS = true;		// use tri-sibling
 	
 	public boolean direct = false;
+	public int typoVecDim = 10;
 	
 	// CoNLL-UNI languages
 //	public enum PossibleLang {
@@ -180,6 +182,9 @@ public class Options implements Cloneable, Serializable {
             }
             else if (arg.startsWith("max-sent:")) {
                 maxNumSent = Integer.parseInt(arg.split(":")[1]);
+            }
+            else if (arg.startsWith("sup-sent:")) {
+                supSent = Integer.parseInt(arg.split(":")[1]);
             }
             else if (arg.startsWith("iters:")) {
                 maxNumIters = Integer.parseInt(arg.split(":")[1]);
