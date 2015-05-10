@@ -27,6 +27,8 @@ public class FeatureRepo {
 	FeatureVector[] svoFv;
 	FeatureVector[] typoFv;
 	
+	FeatureVector emptyLabelFv;
+	
 	public FeatureRepo(Options options, FeatureFactory ff) {
 		this.options = options;
 		this.ff = ff;
@@ -54,6 +56,8 @@ public class FeatureRepo {
 				for (int i = 0; i < labelNum; ++i) {
 					labelFv[i] = ff.createLabelFeatures(i, pn.node[3].featureSize, pn.node[3].featureBias);
 				}
+				emptyLabelFv = new FeatureVector(pn.node[3].featureSize);
+				emptyLabelFv.addEntry(0);
 			}
 		}
 		else if (options.tensorMode == TensorMode.Multiway) {
@@ -86,6 +90,8 @@ public class FeatureRepo {
 				for (int i = 0; i < labelNum; ++i) {
 					labelFv[i] = ff.createLabelFeatures(i, pn.node[5].featureSize, pn.node[5].featureBias);
 				}
+				emptyLabelFv = new FeatureVector(pn.node[5].featureSize);
+				emptyLabelFv.addEntry(0);
 			}
 		}
 		else if (options.tensorMode == TensorMode.Hierarchical) {
@@ -155,6 +161,8 @@ public class FeatureRepo {
 				for (int i = 0; i < labelNum; ++i) {
 					labelFv[i] = ff.createLabelFeatures(i, arc.node[0].featureSize,arc.node[0].featureBias);
 				}
+				emptyLabelFv = new FeatureVector(arc.node[0].featureSize);
+				emptyLabelFv.addEntry(0);
 				
 				ParameterNode t = arc.node[1];
 				
@@ -249,7 +257,7 @@ public class FeatureRepo {
 	}
 	
 	public FeatureVector getLabelFv(int label) {
-		return labelFv[label];
+		return label == -1 ? emptyLabelFv : labelFv[label];
 	}
 	
 	public FeatureVector getDDTypoFv(int binDist, int lang) {

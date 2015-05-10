@@ -14,6 +14,8 @@ public class ThreewayFeatureNode extends FeatureNode {
 	public FeatureDataItem[] ddData;
 	public FeatureDataItem[] labelData;
 	
+	public FeatureDataItem emptyLabelData;
+	
 	public ThreewayFeatureNode(Options options, DependencyInstance inst, TensorTransfer model) {
 		this.inst = inst;
 		this.options = options;
@@ -75,6 +77,14 @@ public class ThreewayFeatureNode extends FeatureNode {
 				}
 				labelData[i] = new FeatureDataItem(fv, score);
 			}
+			
+			// empty label
+			FeatureVector fv = pipe.fr.getLabelFv(-1);
+			double[] score = new double[rank];
+			for (int r = 0; r < rank; ++r) {
+				score[r] = fv.dotProduct(lpn.param[r]);
+			}
+			emptyLabelData = new FeatureDataItem(fv, score);
 		}
 	}
 
@@ -85,7 +95,7 @@ public class ThreewayFeatureNode extends FeatureNode {
 		double[] ddScore = ddData[pipe.ff.getBinnedDistance(h - m)].score;
 		
 		if (options.learnLabel) {
-			double[] labelScore = labelData[label].score;
+			double[] labelScore = label < 0 ? emptyLabelData.score : labelData[label].score;
 			return Utils.sum(Utils.dot(headScore, modScore, ddScore, labelScore));
 		}
 		else {
@@ -105,8 +115,10 @@ public class ThreewayFeatureNode extends FeatureNode {
 		
 		// update h
 		g = Utils.dot(v, modData[m].score, ddData[binDist].score);
-		if (options.learnLabel)
-			g = Utils.dot(g, labelData[label].score);
+		if (options.learnLabel) {
+			double[] labelScore = label < 0 ? emptyLabelData.score : labelData[label].score;
+			g = Utils.dot(g, labelScore);
+		}
 		ParameterNode hpn = pn.node[0];
 		for (int r = 0; r < hpn.rank; ++r) {
 			hpn.dFV[r].addEntries(headData[h].fv, g[r]);
@@ -119,8 +131,10 @@ public class ThreewayFeatureNode extends FeatureNode {
 		
 		// update m
 		g = Utils.dot(v, headData[h].score, ddData[binDist].score);
-		if (options.learnLabel)
-			g = Utils.dot(g, labelData[label].score);
+		if (options.learnLabel) {
+			double[] labelScore = label < 0 ? emptyLabelData.score : labelData[label].score;
+			g = Utils.dot(g, labelScore);
+		}
 		ParameterNode mpn = pn.node[1];
 		for (int r = 0; r < mpn.rank; ++r) {
 			mpn.dFV[r].addEntries(modData[m].fv, g[r]);
@@ -128,8 +142,10 @@ public class ThreewayFeatureNode extends FeatureNode {
 		
 		// update dd
 		g = Utils.dot(v, headData[h].score, modData[m].score);
-		if (options.learnLabel)
-			g = Utils.dot(g, labelData[label].score);
+		if (options.learnLabel) {
+			double[] labelScore = label < 0 ? emptyLabelData.score : labelData[label].score;
+			g = Utils.dot(g, labelScore);
+		}
 		ParameterNode dpn = pn.node[2];
 		for (int r = 0; r < dpn.rank; ++r) {
 			dpn.dFV[r].addEntries(ddData[binDist].fv, g[r]);
@@ -140,12 +156,12 @@ public class ThreewayFeatureNode extends FeatureNode {
 			g = Utils.dot(v, headData[h].score, modData[m].score, ddData[binDist].score);
 			ParameterNode lpn = pn.node[3];
 			for (int r = 0; r < lpn.rank; ++r) {
-				lpn.dFV[r].addEntries(labelData[label].fv, g[r]);
+				lpn.dFV[r].addEntries(label < 0 ? emptyLabelData.fv : labelData[label].fv, g[r]);
 			}
 		}
 		
 		if (options.learnLabel) {
-			double[] labelScore = labelData[label].score;
+			double[] labelScore = label < 0 ? emptyLabelData.score : labelData[label].score;
 			return Utils.sum(Utils.dot(headData[h].score, modData[m].score, ddData[binDist].score, labelScore));
 		}
 		else {

@@ -18,6 +18,8 @@ public class HierarchicalFeatureNode extends FeatureNode {
 	public FeatureDataItem[] modData;
 	public FeatureDataItem[] ddData;
 	
+	public FeatureDataItem emptyLabelData;
+	
 	double[] typoScore;
 	double[] arcScore;
 	double[] finalScore;
@@ -131,6 +133,14 @@ public class HierarchicalFeatureNode extends FeatureNode {
 				}
 				labelData[i] = new FeatureDataItem(fv, score);
 			}
+			
+			// empty label
+			FeatureVector fv = pipe.fr.getLabelFv(-1);
+			double[] score = new double[rank];
+			for (int r = 0; r < rank; ++r) {
+				score[r] = fv.dotProduct(lpn.param[r]);
+			}
+			emptyLabelData = new FeatureDataItem(fv, score);
 		}
 		
 		// temporary array
@@ -168,7 +178,7 @@ public class HierarchicalFeatureNode extends FeatureNode {
 		}
 		
 		if (options.learnLabel) {
-			double[] lScore = labelData[l].score;
+			double[] lScore = l < 0 ? emptyLabelData.score : labelData[l].score;
 			//double[] arcScore = Utils.dot(lScore, tScore);
 			double[] aScore = Utils.dot_s(arcScore, lScore, tScore);
 			fv = pipe.fr.getSVOFv(hp, mp, l, binDist, lang);
@@ -369,7 +379,7 @@ public class HierarchicalFeatureNode extends FeatureNode {
 		}
 		
 		if (options.learnLabel) {
-			double[] lScore = labelData[label].score;
+			double[] lScore = label < 0 ? emptyLabelData.score : labelData[label].score;
 			//double[] aScore = Utils.dot(lScore, tScore);
 			double[] aScore = Utils.dot_s(arcScore, lScore, tScore);
 			FeatureVector afv = pipe.fr.getSVOFv(hp, mp, label, binDist, lang);
@@ -402,7 +412,8 @@ public class HierarchicalFeatureNode extends FeatureNode {
 			//double[] g2 = Utils.dot(g, tScore);
 			double[] g2 = Utils.dot_s(g2Score, g, tScore);
 			for (int r = 0; r < lpn.rank; ++r) {
-				lpn.dFV[r].addEntries(labelData[label].fv, g2[r]);
+				FeatureVector fv = label < 0 ? emptyLabelData.fv : labelData[label].fv;
+				lpn.dFV[r].addEntries(fv, g2[r]);
 			}
 			
 			// update typo

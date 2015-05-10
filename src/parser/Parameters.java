@@ -328,7 +328,7 @@ public class Parameters implements Serializable {
 		if (gamma < 1.0) {
 			for (int i = 1; i < n; ++i) {
 				loss -= fd.fn.addGradient(gold.heads[i], i, gold.deplbids[i], 1.0, pn) * (1 - gamma);
-				loss += fd.fn.addGradient(pred.heads[i], i, -pred.deplbids[i], -1.0, pn) * (1 - gamma);
+				loss += fd.fn.addGradient(pred.heads[i], i, pred.deplbids[i], -1.0, pn) * (1 - gamma);
 			}
 		}
 		
