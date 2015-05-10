@@ -364,7 +364,7 @@ public class FeatureFactory implements Serializable {
     	if (hp != POS_VERB || (mp != POS_NOUN && mp != POS_PRON) 
     			|| (label != LABEL_SBJ && label != LABEL_SBJPASS && label != LABEL_DOBJ && label != LABEL_IOBJ))
     		Utils.ThrowException("should not go here");
-    	
+/*    	
     	int code = 0;
     	int d = ParameterNode.d;
     	int dir = binDist < d ? 0 : 1;		//0: left; 1: right
@@ -415,7 +415,7 @@ public class FeatureFactory implements Serializable {
     			fv.addEntry(bias[2] + code);
     		}
     	}
-
+*/
     	/*
     	int code = 0;
     	int d = ParameterNode.d;
@@ -489,7 +489,7 @@ public class FeatureFactory implements Serializable {
     	// no bias feature
     	
     	FeatureVector fv = new FeatureVector(dim);
-    	
+/*    	
     	int code = 0;
     	int d = ParameterNode.d;
     	int dir = binDist < d ? 0 : 1;		//0: left; 1: right
@@ -517,7 +517,7 @@ public class FeatureFactory implements Serializable {
     		code = v * offset + dir;
     		fv.addEntry(bias[2] + code);
     	}
-    	
+    	*/
     	/*
     	int code = 0;
     	int d = ParameterNode.d;
@@ -896,7 +896,7 @@ public class FeatureFactory implements Serializable {
     }
     
     public void addSelectiveFeatures (DependencyInstance inst, int h, int m, FeatureVector fv) {
-	    long code = 0;
+/*	    long code = 0;
 		int[] pos = inst.postagids;
 		int[] feature = typo.getFeature(inst.lang);
 		
@@ -925,7 +925,7 @@ public class FeatureFactory implements Serializable {
 			    code = createArcCodeP(Arc.ADJ, feature[TypoFeatureType.Adj.ordinal()] + 1);
 		    	addArcFeature(code | dir, fv);
 		    }
-		   
+		   */
     }
     
     public FeatureVector createArcLabelFeatures(DependencyInstance inst, int h, int m, int label) 
@@ -1205,7 +1205,7 @@ public class FeatureFactory implements Serializable {
     }
     
     public void addSelectiveFeatures (DependencyInstance inst, int h, int m, int label, FeatureVector fv) {
-	    long code = 0;
+/*	    long code = 0;
 		int[] pos = inst.postagids;
 		int[] feature = typo.getFeature(inst.lang);
 		
@@ -1258,7 +1258,7 @@ public class FeatureFactory implements Serializable {
 	    if (HP == POS_NOUN && MP == POS_ADJ) {
 			    code = createArcCodeP(Arc.ADJ, feature[TypoFeatureType.Adj.ordinal()] + 1) | tid;
 			    addLabeledArcFeature(code | dir, fv);
-		    }
+		    }*/
     }
     
     /***
