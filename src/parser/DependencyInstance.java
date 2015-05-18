@@ -2,10 +2,11 @@ package parser;
 
 import static utils.DictionarySet.DictionaryTypes.DEPLABEL;
 import static utils.DictionarySet.DictionaryTypes.POS;
-import static utils.DictionarySet.DictionaryTypes.WORDVEC;
+import static utils.DictionarySet.DictionaryTypes.WORD;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.regex.Pattern;
 import utils.DictionarySet;
 
@@ -35,7 +36,9 @@ public class DependencyInstance implements Serializable {
 	
 	public int[] postagids;
 	public int[] deplbids;
+	public int[] formids;
 	public int[] wordVecIds;
+	public int[] transids;
 
     public DependencyInstance(int lang, String[] forms, String[] postags, int[] heads) {
     	this.length = forms.length;
@@ -57,7 +60,9 @@ public class DependencyInstance implements Serializable {
     	heads = a.heads;
     	postagids = a.postagids;
     	deplbids = a.deplbids;
+    	formids = a.formids;
     	wordVecIds = a.wordVecIds;
+    	transids = a.transids;
     }
     
     
@@ -65,19 +70,41 @@ public class DependencyInstance implements Serializable {
     	    	
 		postagids = new int[length];
 		deplbids = new int[length];
+		formids = new int[length];
 		
     	for (int i = 0; i < length; ++i) {
+    		formids[i] = dicts.lookupIndex(WORD, normalize(forms[i])) - 1; // zero-based
 			postagids[i] = dicts.lookupIndex(POS, postags[i]) - 1;		// zero-based
 			deplbids[i] = dicts.lookupIndex(DEPLABEL, deplbs[i]) - 1;	// zero-based
 			//System.out.println(deplbids[i] + "\t" + deplbs[i]);
     	}
     	//try { System.in.read(); } catch (IOException e) { e.printStackTrace(); }
     	
-		if (dicts.size(WORDVEC) > 0) {
-			//TODO: add wordvec
-		}
+		wordVecIds = new int[length];
+		Arrays.fill(wordVecIds, -1);
+    	if (dicts.wv != null) {
+    		for (int i = 0; i < length; ++i) {
+    			String w = forms[i];
+    			int id = dicts.wv.getWordId(lang, w);
+    			if (id < 0)
+    				id = dicts.wv.getWordId(lang, w.toLowerCase());
+    			wordVecIds[i] = id;
+    		}
+    	}
+    	
+    	transids = new int[length];
+    	Arrays.fill(transids, -1);
+    	if (dicts.wv != null) {
+    		for (int i = 0; i < length; ++i) {
+    			String w = forms[i];
+    			int id = dicts.wv.getTranslationId(lang, w);
+    			if (id < 0)
+    				id = dicts.wv.getTranslationId(lang, w.toLowerCase());
+    			transids[i] = id;
+    		}
+    	}
     }
-
+ 
     private String normalize(String s) {
     	if (numberRegex.matcher(s).matches()) {
     		return "<num>";

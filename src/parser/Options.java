@@ -50,7 +50,7 @@ public class Options implements Cloneable, Serializable {
     
 	public int maxNumSent = -1;
 	public int supSent = 50; 
-	public int maxNumIters = 15;
+	public int maxNumIters = 10;
 	
 	//public LearningMode learningMode = LearningMode.Basic;
 	public FeatureMode featureMode = FeatureMode.Standard;
@@ -87,7 +87,7 @@ public class Options implements Cloneable, Serializable {
 	// tensor
 	public double gamma = 1.0;
 	public int R = 100;
-	public int extraR = 10;
+	public int extraR = 1;
 	public boolean useNN = false;
 	public boolean initTensorWithPretrain = true;
 	
@@ -97,6 +97,8 @@ public class Options implements Cloneable, Serializable {
 	public boolean useHB = true;		// use head bigram
 	public boolean useGS = true;		// use grand sibling
 	public boolean useTS = true;		// use tri-sibling
+	
+	public boolean useSupervised = true;
 	
 	public boolean direct = false;
 	public int typoVecDim = 10;
@@ -119,6 +121,14 @@ public class Options implements Cloneable, Serializable {
 //	
 	public String langString[] = {"en", "fr", "de", "id", "it", "ja",
 			"ko", "pt-br", "es", "sv"};
+
+	public String sub1LangString[] = {"en", "fr", "de", "id", "it", 
+			"ko", "pt-br", "es", "sv"};
+	public String sub2LangString[] = {"en", "fr", "de", "id", "it", 
+			"pt-br", "es", "sv"};
+
+	public String euroLangString[] = {"en", "fr", "de", "it", "pt-br", "es", "sv"};
+	
 	
 	public String targetLangStr = "";
 	public int targetLang;
@@ -288,11 +298,13 @@ public class Options implements Cloneable, Serializable {
     			break;
     	}
     	
+    	if (typoFile.contains("euro"))
+    		langString = euroLangString;
+    	else if (typoFile.contains("sub1"))
+    		langString = sub1LangString;
+    	else if (typoFile.contains("sub2"))
+    		langString = sub2LangString;
     	targetLang = findLang(targetLangStr);
-    	if (wordVectorFile == null) {
-    		lexical = false;
-    		useNN = false;
-    	}
     	
     	Utils.rnd = new Random(seed);
     }
@@ -307,6 +319,7 @@ public class Options implements Cloneable, Serializable {
     	System.out.println("train: " + train);
     	System.out.println("test: " + test);
         System.out.println("iters: " + maxNumIters);
+        System.out.println("lexical: " + lexical);
     	System.out.println("label: " + learnLabel);
         System.out.println("max-sent: " + maxNumSent);  
         System.out.println("seed: " + seed);  

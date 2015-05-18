@@ -2,6 +2,7 @@ package parser;
 
 import static utils.DictionarySet.DictionaryTypes.DEPLABEL;
 import static utils.DictionarySet.DictionaryTypes.POS;
+import static utils.DictionarySet.DictionaryTypes.WORD;
 
 import java.io.*;
 import java.util.*;
@@ -10,6 +11,7 @@ import parser.Options.Dataset;
 import parser.feature.FeatureFactory;
 import parser.feature.FeatureRepo;
 import parser.io.DependencyReader;
+import parser.io.DependencyWriter;
 import parser.tensor.ParameterNode;
 
 import utils.Dictionary;
@@ -17,6 +19,7 @@ import utils.DictionarySet;
 import utils.Distribution;
 import utils.TypologicalInfo;
 import utils.Utils;
+import utils.WordVector;
 
 public class DependencyPipe implements Serializable {
 
@@ -29,6 +32,7 @@ public class DependencyPipe implements Serializable {
     public DictionarySet dictionaries;
     public FeatureFactory ff;
     public transient TypologicalInfo typo;
+    public transient WordVector wv;
     public transient FeatureRepo fr;
         
     public String[] types;					// array that maps label index to label string
@@ -39,8 +43,13 @@ public class DependencyPipe implements Serializable {
 		dictionaries = new DictionarySet();
 		ff = new FeatureFactory(options);
 		typo = new TypologicalInfo(options);
+		if (options.lexical)
+			wv = new WordVector(options);
 		
 		ff.typo = typo;
+		ff.wv = wv;
+		
+		dictionaries.wv = wv;
 		
 		this.options = options;
 	}
@@ -114,6 +123,9 @@ public class DependencyPipe implements Serializable {
 		ff.TOKEN_START = dictionaries.lookupIndex(POS, "#TOKEN_START#") - 1;
 		ff.TOKEN_END = dictionaries.lookupIndex(POS, "#TOKEN_END#") - 1;
 		ff.TOKEN_MID = dictionaries.lookupIndex(POS, "#TOKEN_MID#") - 1;
+		Utils.Assert(ff.TOKEN_START == dictionaries.lookupIndex(WORD, "#TOKEN_START#") - 1);
+        Utils.Assert(ff.TOKEN_END == dictionaries.lookupIndex(WORD, "#TOKEN_END#") - 1); 
+        Utils.Assert(ff.TOKEN_MID == dictionaries.lookupIndex(WORD, "#TOKEN_MID#") - 1);
 		
 		ff.POS_NOUN = dictionaries.lookupIndex(POS, "NOUN") - 1;
 		ff.POS_PRON = dictionaries.lookupIndex(POS, "PRON") - 1;
@@ -128,9 +140,11 @@ public class DependencyPipe implements Serializable {
         
 		dictionaries.stopGrowth(DEPLABEL);
 		dictionaries.stopGrowth(POS);
+		dictionaries.stopGrowth(WORD);
 				
 		ff.tagNumBits = Math.max(Utils.log2(dictionaries.size(POS) + 1), typo.bit + 1);
 		ff.depNumBits = Utils.log2(dictionaries.size(DEPLABEL)*2 + 1);
+		ff.wordNumBits = Utils.log2(dictionaries.size(WORD)*2 + 1);
 		
 		if (options.learnLabel)
 			ff.flagBits = ff.depNumBits + 4;
@@ -146,7 +160,7 @@ public class DependencyPipe implements Serializable {
 		for (int i = 0; i < keys.length; ++i) {
 			int id = labelDict.lookupIndex((String)keys[i]);
 			types[id-1] = (String)keys[i];
-			//System.out.println(types[id - 1]);
+			//System.out.println(id + ": " + types[id - 1]);
 		}
 		
 		poses = new String[dictionaries.size(POS)];	 
@@ -171,6 +185,8 @@ public class DependencyPipe implements Serializable {
 		System.out.printf("Tag/label items: %d %d %d (%d bits)  %d (%d bits)%n", 
 				dictionaries.size(POS), typo.familyNum, typo.classNum, ff.tagNumBits,
 				dictionaries.size(DEPLABEL), ff.depNumBits);
+		System.out.printf("Lexical items: %d (%d bits)%n", 
+				dictionaries.size(WORD), ff.wordNumBits);
 		System.out.printf("Flag Bits: %d%n", ff.flagBits);
 		System.out.printf("Creation took [%d ms]%n", System.currentTimeMillis() - start);
 	}
@@ -232,6 +248,16 @@ public class DependencyPipe implements Serializable {
 		ff.closeAlphabets();
     }
 
+    public void outputTrainingData(DependencyInstance[] insts) throws IOException {
+    	DependencyWriter writer = DependencyWriter.createDependencyWriter(options, options.targetLang, this);
+		writer.startWriting(constructTrainFileName(options.targetLang) + ".rand50");
+		for (int i = 0; i < insts.length; ++i)
+			writer.writeInstance(insts[i]);
+		writer.close();
+		
+		System.exit(0);
+    }
+    
     public DependencyInstance[] createInstances() throws IOException 
     {
     	
@@ -258,7 +284,8 @@ public class DependencyPipe implements Serializable {
     			inst.setInstIds(dictionaries);
     			
     		    //createFeatures(inst);
-    			lt.add(new DependencyInstance(inst));		    
+    			lt.add(new DependencyInstance(inst));
+    			//lt.add(inst);
     			
     			inst = reader.nextInstance();
     			cnt++;
@@ -276,7 +303,7 @@ public class DependencyPipe implements Serializable {
 		DependencyInstance[] insts = shuffle(lt, dist);
         //DependencyInstance[] insts = greedyShuffle(lt, dist);
         //DependencyInstance[] tmpinsts = lengthShuffle(lt, dist);
-        //DependencyInstance[] insts = greedyShuffle2(lt);
+        //DependencyInstance[] tmpinsts = greedyShuffle2(lt);
         
         //DependencyInstance[] insts = dupAndRandom(tmpinsts);
         //DependencyInstance[] insts = removeUnsup(tmpinsts);
@@ -286,6 +313,8 @@ public class DependencyPipe implements Serializable {
 		
 		System.out.printf("%d [%d ms]%n", insts.length, System.currentTimeMillis() - start);
 	    
+		//outputTrainingData(insts);
+		
 		return insts;
 	}
     
@@ -331,6 +360,8 @@ public class DependencyPipe implements Serializable {
     	for (int i = 0; i < size; ++i)
     		if (lt.get(i).lang == options.targetLang)
     			supNum++;
+    	if (options.supSent == -1)
+    		options.supSent = supNum;
     	
     	int n = options.maxNumSent == -1 ? lt.size() - supNum + options.supSent : Math.min(options.maxNumSent, lt.size() - supNum + options.supSent);
     	boolean[] used = new boolean[size];
@@ -386,6 +417,8 @@ public class DependencyPipe implements Serializable {
     			supNum++;
     			lt2.add(lt.get(i));
     		}
+    	if (options.supSent == -1)
+    		options.supSent = supNum;
     	
     	int n = options.maxNumSent == -1 ? lt.size() - supNum + options.supSent : Math.min(options.maxNumSent, lt.size() - supNum + options.supSent);
     	boolean[] used = new boolean[size];
@@ -440,6 +473,8 @@ public class DependencyPipe implements Serializable {
     	for (int i = 0; i < size; ++i)
     		if (lt.get(i).lang == options.targetLang)
     			supNum++;
+    	if (options.supSent == -1)
+    		options.supSent = supNum;
     	
     	int n = options.maxNumSent == -1 ? lt.size() - supNum + options.supSent : Math.min(options.maxNumSent, lt.size() - supNum + options.supSent);
     	boolean[] used = new boolean[size];
@@ -492,6 +527,8 @@ public class DependencyPipe implements Serializable {
     	for (int i = 0; i < size; ++i)
     		if (lt.get(i).lang == options.targetLang)
     			supNum++;
+    	if (options.supSent == -1)
+    		options.supSent = supNum;
     	
     	int n = options.maxNumSent == -1 ? lt.size() - supNum + options.supSent : Math.min(options.maxNumSent, lt.size() - supNum + options.supSent);
 

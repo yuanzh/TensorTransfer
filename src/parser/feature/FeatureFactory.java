@@ -18,6 +18,7 @@ import utils.FeatureVector;
 import utils.TypologicalInfo;
 import utils.Utils;
 import utils.TypologicalInfo.TypoFeatureType;
+import utils.WordVector;
 
 public class FeatureFactory implements Serializable {
 	
@@ -42,11 +43,13 @@ public class FeatureFactory implements Serializable {
 	public int LABEL_SBJPASS = 5;
 	
 	public int tagNumBits, depNumBits, flagBits;
+	public int wordNumBits;
 
 	public int posNum, labelNum;
     public ParameterNode pn;
 	public transient TypologicalInfo typo;
 	public transient FeatureRepo fr;
+	public transient WordVector wv;
 
     //public Alphabet arcAlphabet;
 	//public int numArcFeats;	// number of arc structure features
@@ -163,6 +166,16 @@ public class FeatureFactory implements Serializable {
 		ParameterNode delexical = pn;
 		if (options.lexical) {
 			delexical = pn.node[1];
+			
+			ParameterNode hpn = pn.node[0].node[0];
+			ParameterNode mpn = pn.node[0].node[1];
+			for (int i = 0; i < n; ++i) {
+				FeatureVector fv = createLexicalFeatures(inst, i, hpn.featureSize, hpn.featureBias);
+				hpn.setActiveFeature(fv);
+				if (i > 0) {
+					mpn.setActiveFeature(fv);
+				}
+			}
 		}
 		
 		for (int i = 0; i < n; ++i) {
@@ -312,6 +325,29 @@ public class FeatureFactory implements Serializable {
     	return fv;
     }
     
+    public FeatureVector createLexicalFeatures(DependencyInstance inst, int i, int dim, int[] bias) {
+    	FeatureVector fv = new FeatureVector(dim);
+    	int lang = inst.lang;
+    	int wordVecId = inst.wordVecIds[i];
+    	
+    	int code = 0;
+    	fv.addEntry(code);
+    	
+    	if (wordVecId >= 0) {
+    		double[] v = wv.getWordVec(lang, wordVecId);
+    		for (int j = 0, L = v.length; j < L; ++j) {
+    			fv.addEntry(bias[0] + j, v[j]);
+    		}
+    	}
+    	
+    	int transid = inst.transids[i];
+    	if (transid >= 0) {
+    		fv.addEntry(bias[1] + transid);
+    	}
+    	
+    	return fv;
+    }
+
     public FeatureVector createContextPOSFeatures(int pp, int np, int dim, int[] bias) {
     	FeatureVector fv = new FeatureVector(dim);
     	int code = 0;
@@ -627,6 +663,10 @@ public class FeatureFactory implements Serializable {
     {
     	FeatureVector fv = new FeatureVector(numArcFeats);
     	
+    	//if (options.useSupervised && inst.lang == options.targetLang) {
+    	//	addSupervisedFeatures(fv, inst, h, m, getBinnedDistance(h - m) + 1);
+    	//}
+    	
     	if (options.direct)
     		addDelexicalFeatures(inst, h, m, fv);
     	else {
@@ -709,6 +749,23 @@ public class FeatureFactory implements Serializable {
         	addArcFeature(code, fv);
     	}
 
+		if (inst.wordVecIds[h] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[h]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.HEAD_EMB, i + 1);
+				addArcFeature(code, v[i], fv);
+				addArcFeature(code | attDist, v[i], fv);
+			}
+		}
+		
+		if (inst.wordVecIds[m] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[m]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.MOD_EMB, i + 1);
+				//addArcFeature(code, v[i], fv);
+				addArcFeature(code | attDist, v[i], fv);
+			}
+		}
     }
     
     public void addDelexicalCFFeatures(DependencyInstance inst, int h, int m, FeatureVector fv) {
@@ -868,6 +925,69 @@ public class FeatureFactory implements Serializable {
         	for (int i = 0; i < typoVecDim; ++i)
         		addArcFeature(code | f[i], v[i], fv);
     	}
+
+		if (inst.wordVecIds[h] >= 0) {
+			double[] v2 = wv.getWordVec(inst.lang, inst.wordVecIds[h]);
+			for (int i = 0; i < v2.length; ++i) {
+				code = createArcCodeWP(Arc.HEAD_EMB, i + 1, 0);
+				addArcFeature(code | c, v2[i], fv);
+		    	for (int j = 0; j < typoVecDim; ++j)
+		    		addArcFeature(code | f[j], v2[i] * v[j], fv);
+				addArcFeature(code | c | attDist, v2[i], fv);
+		    	for (int j = 0; j < typoVecDim; ++j)
+		    		addArcFeature(code | f[j] | attDist, v2[i] * v[j], fv);
+			}
+		}
+		
+		if (inst.wordVecIds[m] >= 0) {
+			double[] v2 = wv.getWordVec(inst.lang, inst.wordVecIds[m]);
+			for (int i = 0; i < v2.length; ++i) {
+				code = createArcCodeWP(Arc.MOD_EMB, i + 1, 0);
+				//addArcFeature(code | c, v[i], fv);
+				//addArcFeature(code | f, v[i], fv);
+				addArcFeature(code | c | attDist, v2[i], fv);
+		    	for (int j = 0; j < typoVecDim; ++j)
+		    		addArcFeature(code | f[j] | attDist, v2[i] * v[j], fv);
+			}
+		}
+
+		if (inst.transids[h] >= 0) {
+			int head = inst.transids[h] + 1;
+	    	code = createArcCodeWPPP(Arc.HW_HP_MP, head, HP, MP, 0);
+	    	addLabeledArcFeature(code | c, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i], v[i], fv);
+	    	addLabeledArcFeature(code | c | attDist, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i] | attDist, v[i], fv);
+	    	
+	    	code = createArcCodeWPP(Arc.HW_MP, head, MP, 0);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i], v[i], fv);
+	    	addLabeledArcFeature(code | c | attDist, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i] | attDist, v[i], fv);
+		}
+		
+		if (inst.transids[m] >= 0) {
+			int mod = inst.transids[m] + 1;
+	    	code = createArcCodeWPPP(Arc.MW_HP_MP, mod, HP, MP, 0);
+	    	addLabeledArcFeature(code | c, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i], v[i], fv);
+	    	addLabeledArcFeature(code | c | attDist, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i] | attDist, v[i], fv);
+	    	
+	    	code = createArcCodeWPP(Arc.MW_HP, mod, HP, 0);
+	    	addLabeledArcFeature(code | c, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i], v[i], fv);
+	    	addLabeledArcFeature(code | c | attDist, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i] | attDist, v[i], fv);
+			
+		}
     }
     
     public void addBareFeatures (DependencyInstance inst, int h, int m, FeatureVector fv) {
@@ -893,6 +1013,24 @@ public class FeatureFactory implements Serializable {
     	code = createArcCodePP(Arc.B_HP_MP, HP, MP);
     	addArcFeature(code, fv);
     	addArcFeature(code | dist, fv);
+
+    	if (inst.wordVecIds[h] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[h]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.B_HEAD_EMB, i + 1);
+				addArcFeature(code, v[i], fv);
+				addArcFeature(code | dist, v[i], fv);
+			}
+		}
+		
+//		if (inst.wordVecIds[m] >= 0) {
+//			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[m]);
+//			for (int i = 0; i < v.length; ++i) {
+//				code = createArcCodeW(Arc.B_MOD_EMB, i + 1);
+//				//addArcFeature(code, v[i], fv);
+//				addArcFeature(code | dist, v[i], fv);
+//			}
+//		}
     }
     
     public void addSelectiveFeatures (DependencyInstance inst, int h, int m, FeatureVector fv) {
@@ -928,12 +1066,150 @@ public class FeatureFactory implements Serializable {
 		   
     }
     
+    public void addSupervisedFeatures(FeatureVector fv, DependencyInstance inst, 
+    		int h, int m, int attDist, int label) 
+    {
+    	int tid = label << 4;
+    	
+    	long code = 0; 			// feature code
+    	
+    	int[] forms = inst.formids, postags = inst.postagids;
+    	
+
+    	code = createArcCodeW(Arc.L_CORE_HEAD_WORD, forms[h] + 1) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	    	    	
+    	code = createArcCodeW(Arc.L_CORE_MOD_WORD, forms[m] + 1) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeWW(Arc.L_HW_MW, forms[h] + 1, forms[m] + 1) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeP(Arc.L_CORE_HEAD_POS, postags[h] + 1) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeP(Arc.L_CORE_MOD_POS, postags[m] + 1) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodePP(Arc.L_HP_MP, postags[h] + 1, postags[m] + 1) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	int[] pos = inst.postagids;
+    	int pHead = pos[h] + 1;
+    	int pMod = pos[m] + 1;
+    	int pHeadLeft = (h > 0 ? pos[h-1] : TOKEN_START) + 1;    	
+    	int pModRight = (m < pos.length-1 ? pos[m+1] : TOKEN_END) + 1;
+    	int pHeadRight = (h < pos.length-1 ? pos[h+1] : TOKEN_END) + 1;
+    	int pModLeft = (m > 0 ? pos[m-1] : TOKEN_START) + 1;
+    	
+    	// feature posR posMid posL
+    	int small = h < m ? h : m;
+    	int large = h > m ? h : m;
+    	for(int i = small+1; i < large; i++) {    		
+    		code = createArcCodePPP(Arc.L_HP_BP_MP, pHead, pos[i], pMod) | tid;
+    		addArcFeature(code, fv);
+    		addArcFeature(code | attDist, fv);
+    	}
+    	
+    	// feature posL-1 posL posR posR+1
+    	code = createArcCodePPPP(Arc.L_HPp_HP_MP_MPn, pHeadLeft, pHead, pMod, pModRight) | tid;
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+    	code = createArcCodePPP(Arc.L_HP_MP_MPn, pHead, pMod, pModRight) | tid;
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+    	code = createArcCodePPP(Arc.L_HPp_HP_MP, pHeadLeft, pHead, pMod) | tid;
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+    	code = createArcCodePPP(Arc.L_HPp_MP_MPn, pHeadLeft, pMod, pModRight) | tid;
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+    	code = createArcCodePPP(Arc.L_HPp_HP_MPn, pHeadLeft, pHead, pModRight) | tid;
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+    	
+    	// feature posL posL+1 posR-1 posR
+		code = createArcCodePPPP(Arc.L_HP_HPn_MPp_MP, pHead, pHeadRight, pModLeft, pMod) | tid;
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+		code = createArcCodePPP(Arc.L_HP_MPp_MP, pHead, pModLeft, pMod) | tid;
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+		code = createArcCodePPP(Arc.L_HP_HPn_MP, pHead, pHeadRight, pMod) | tid;
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+		code = createArcCodePPP(Arc.L_HPn_MPp_MP, pHeadRight, pModLeft, pMod) | tid;
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+		code = createArcCodePPP(Arc.L_HP_HPn_MPp, pHead, pHeadRight, pModLeft) | tid;
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+    	
+		// feature posL-1 posL posR-1 posR
+		// feature posL posL+1 posR posR+1
+		code = createArcCodePPPP(Arc.L_HPp_HP_MPp_MP, pHeadLeft, pHead, pModLeft, pMod) | tid;
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+		code = createArcCodePPPP(Arc.L_HP_HPn_MP_MPn, pHead, pHeadRight, pMod, pModRight) | tid;
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+   	     	
+		int head = inst.formids[h] + 1, headP = inst.postagids[h] + 1;
+		int mod = inst.formids[m] + 1, modP = inst.postagids[m] + 1;
+    	code = createArcCodeWWPP(Arc.L_HW_MW_HP_MP, head, mod, headP, modP) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeWPP(Arc.L_MW_HP_MP, mod, headP, modP) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeWPP(Arc.L_HW_HP_MP, head, headP, modP) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeWP(Arc.L_MW_HP, mod, headP) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeWP(Arc.L_HW_MP, head, modP) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	    	
+    	code = createArcCodeWP(Arc.L_HW_HP, head, headP) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeWP(Arc.L_MW_MP, mod, modP) | tid;
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    }
+
     public FeatureVector createArcLabelFeatures(DependencyInstance inst, int h, int m, int label) 
     {
     	FeatureVector fv = new FeatureVector(numArcFeats);
     	if (!options.learnLabel) 
     		return fv;
     	
+    	//if (options.useSupervised && inst.lang == options.targetLang) {
+    	//	addSupervisedFeatures(fv, inst, h, m, getBinnedDistance(h - m) + 1, label + 1);
+    	//}
+
     	if (options.direct)
     		addDelexicalFeatures(inst, h, m, label + 1, fv);
     	else {
@@ -960,9 +1236,6 @@ public class FeatureFactory implements Serializable {
 		int MPp = (m > 0 ? pos[m - 1] : TOKEN_START) + 1;
 		int MPn = (m < n - 1 ? pos[m + 1] : TOKEN_END) + 1;
 		
-    	code = createArcCodeP(Arc.ATTDIST, 0) | tid;
-    	addLabeledArcFeature(code | attDist, fv);
-    	
     	code = createArcCodeP(Arc.HP, HP) | tid;
     	addLabeledArcFeature(code, fv);
     	addLabeledArcFeature(code | attDist, fv);
@@ -974,7 +1247,7 @@ public class FeatureFactory implements Serializable {
     	code = createArcCodePP(Arc.HP_MP, HP, MP) | tid;
     	addLabeledArcFeature(code, fv);
     	addLabeledArcFeature(code | attDist, fv);
-
+/*
     	code = createArcCodePPP(Arc.HPp_HP_MP, HPp, HP, MP) | tid;
     	addLabeledArcFeature(code, fv);
     	addLabeledArcFeature(code | attDist, fv);
@@ -991,6 +1264,9 @@ public class FeatureFactory implements Serializable {
     	addLabeledArcFeature(code, fv);
     	addLabeledArcFeature(code | attDist, fv);
 
+    	code = createArcCodeP(Arc.ATTDIST, 0) | tid;
+    	addLabeledArcFeature(code | attDist, fv);
+    	
     	code = createArcCodePPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn) | tid;
     	addLabeledArcFeature(code, fv);
     	addLabeledArcFeature(code | attDist, fv);
@@ -1015,7 +1291,25 @@ public class FeatureFactory implements Serializable {
         	code = createArcCodePPP(Arc.HP_BP_MP, HP, BP, MP) | tid;
         	addLabeledArcFeature(code, fv);
     	}
+*/
 
+		if (inst.wordVecIds[h] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[h]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.HEAD_EMB, i + 1) | tid;
+				addArcFeature(code, v[i], fv);
+				addArcFeature(code | attDist, v[i], fv);
+			}
+		}
+		
+		if (inst.wordVecIds[m] >= 0) {
+			double[] v = wv.getWordVec(inst.lang, inst.wordVecIds[m]);
+			for (int i = 0; i < v.length; ++i) {
+				code = createArcCodeW(Arc.MOD_EMB, i + 1) | tid;
+				addArcFeature(code, v[i], fv);
+				addArcFeature(code | attDist, v[i], fv);
+			}
+		}
     }
     
     public void addDelexicalCFFeatures(DependencyInstance inst, int h, int m, int label, FeatureVector fv) {
@@ -1117,7 +1411,7 @@ public class FeatureFactory implements Serializable {
     	//addLabeledArcFeature(code | f | attDist, fv);
     	for (int i = 0; i < typoVecDim; ++i)
     		addArcFeature(code | f[i] | attDist, v[i], fv);
-
+/*
     	code = createArcCodePP(Arc.ATTDIST, 0, 0) | tid;
     	addLabeledArcFeature(code | c | attDist, fv);
     	//addLabeledArcFeature(code | f | attDist, fv);
@@ -1175,7 +1469,70 @@ public class FeatureFactory implements Serializable {
         	for (int i = 0; i < typoVecDim; ++i)
         		addArcFeature(code | f[i], v[i], fv);
    		}
-   		
+*/   		
+		if (inst.wordVecIds[h] >= 0) {
+			double[] v2 = wv.getWordVec(inst.lang, inst.wordVecIds[h]);
+			for (int i = 0; i < v2.length; ++i) {
+				code = createArcCodeWP(Arc.HEAD_EMB, i + 1, 0) | tid;
+				addArcFeature(code | c, v2[i], fv);
+		    	for (int j = 0; j < typoVecDim; ++j)
+		    		addArcFeature(code | f[j], v2[i] * v[j], fv);
+				addArcFeature(code | c | attDist, v2[i], fv);
+		    	for (int j = 0; j < typoVecDim; ++j)
+		    		addArcFeature(code | f[j] | attDist, v2[i] * v[j], fv);
+			}
+		}
+		
+		if (inst.wordVecIds[m] >= 0) {
+			double[] v2 = wv.getWordVec(inst.lang, inst.wordVecIds[m]);
+			for (int i = 0; i < v2.length; ++i) {
+				code = createArcCodeWP(Arc.MOD_EMB, i + 1, 0) | tid;
+				addArcFeature(code | c, v2[i], fv);
+		    	for (int j = 0; j < typoVecDim; ++j)
+		    		addArcFeature(code | f[j], v2[i] * v[j], fv);
+				addArcFeature(code | c | attDist, v2[i], fv);
+		    	for (int j = 0; j < typoVecDim; ++j)
+		    		addArcFeature(code | f[j] | attDist, v2[i] * v[j], fv);
+			}
+		}
+		
+		if (inst.transids[h] >= 0) {
+			int head = inst.transids[h] + 1;
+	    	code = createArcCodeWPPP(Arc.HW_HP_MP, head, HP, MP, 0) | tid;
+	    	addLabeledArcFeature(code | c, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i], v[i], fv);
+	    	addLabeledArcFeature(code | c | attDist, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i] | attDist, v[i], fv);
+	    	
+	    	code = createArcCodeWPP(Arc.HW_MP, head, MP, 0) | tid;
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i], v[i], fv);
+	    	addLabeledArcFeature(code | c | attDist, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i] | attDist, v[i], fv);
+		}
+		
+		if (inst.transids[m] >= 0) {
+			int mod = inst.transids[m] + 1;
+	    	code = createArcCodeWPPP(Arc.MW_HP_MP, mod, HP, MP, 0) | tid;
+	    	addLabeledArcFeature(code | c, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i], v[i], fv);
+	    	addLabeledArcFeature(code | c | attDist, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i] | attDist, v[i], fv);
+	    	
+	    	code = createArcCodeWPP(Arc.MW_HP, mod, HP, 0) | tid;
+	    	addLabeledArcFeature(code | c, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i], v[i], fv);
+	    	addLabeledArcFeature(code | c | attDist, fv);
+	    	for (int i = 0; i < typoVecDim; ++i)
+	    		addLabeledArcFeature(code | f[i] | attDist, v[i], fv);
+			
+		}
     }
     
     public void addBareFeatures (DependencyInstance inst, int h, int m, int label, FeatureVector fv) {
@@ -1187,7 +1544,7 @@ public class FeatureFactory implements Serializable {
 		
 		int HP = pos[h] + 1;
 		int MP = pos[m] + 1;
-
+/*
     	code = createArcCodeP(Arc.DIST, 0) | tid;
     	addLabeledArcFeature(code | dist, fv);
     	
@@ -1201,7 +1558,7 @@ public class FeatureFactory implements Serializable {
 
     	code = createArcCodePP(Arc.B_HP_MP, HP, MP) | tid;
     	addLabeledArcFeature(code, fv);
-    	addLabeledArcFeature(code | dist, fv);
+    	addLabeledArcFeature(code | dist, fv);*/
     }
     
     public void addSelectiveFeatures (DependencyInstance inst, int h, int m, int label, FeatureVector fv) {
@@ -1239,7 +1596,7 @@ public class FeatureFactory implements Serializable {
 	    	code = createArcCodeP(Arc.VO_PRON, feature[TypoFeatureType.VO.ordinal()] + 1) | tid;
 	    	addLabeledArcFeature(code | dir, fv);
 	    }
-	    	
+/*	    	
 	    if (HP == POS_ADP && MP == POS_NOUN) {
 			    code = createArcCodeP(Arc.ADP_NOUN, feature[TypoFeatureType.Prep.ordinal()] + 1) | tid;
 			    addLabeledArcFeature(code | dir, fv);
@@ -1258,9 +1615,142 @@ public class FeatureFactory implements Serializable {
 	    if (HP == POS_NOUN && MP == POS_ADJ) {
 			    code = createArcCodeP(Arc.ADJ, feature[TypoFeatureType.Adj.ordinal()] + 1) | tid;
 			    addLabeledArcFeature(code | dir, fv);
-		    }
+		    }*/
     }
     
+    public void addSupervisedFeatures(FeatureVector fv, DependencyInstance inst, 
+    		int h, int m, int attDist) 
+    {
+    	
+    	long code = 0; 			// feature code
+    	
+    	int[] forms = inst.formids, postags = inst.postagids;
+    	
+
+    	code = createArcCodeW(Arc.L_CORE_HEAD_WORD, forms[h] + 1);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	    	    	
+    	code = createArcCodeW(Arc.L_CORE_MOD_WORD, forms[m] + 1);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeWW(Arc.L_HW_MW, forms[h] + 1, forms[m] + 1);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeP(Arc.L_CORE_HEAD_POS, postags[h] + 1);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeP(Arc.L_CORE_MOD_POS, postags[m] + 1);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodePP(Arc.L_HP_MP, postags[h] + 1, postags[m] + 1);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	int[] pos = inst.postagids;
+    	int pHead = pos[h] + 1;
+    	int pMod = pos[m] + 1;
+    	int pHeadLeft = (h > 0 ? pos[h-1] : TOKEN_START) + 1;    	
+    	int pModRight = (m < pos.length-1 ? pos[m+1] : TOKEN_END) + 1;
+    	int pHeadRight = (h < pos.length-1 ? pos[h+1] : TOKEN_END) + 1;
+    	int pModLeft = (m > 0 ? pos[m-1] : TOKEN_START) + 1;
+    	
+    	// feature posR posMid posL
+    	int small = h < m ? h : m;
+    	int large = h > m ? h : m;
+    	for(int i = small+1; i < large; i++) {    		
+    		code = createArcCodePPP(Arc.L_HP_BP_MP, pHead, pos[i], pMod);
+    		addArcFeature(code, fv);
+    		addArcFeature(code | attDist, fv);
+    	}
+    	
+    	// feature posL-1 posL posR posR+1
+    	code = createArcCodePPPP(Arc.L_HPp_HP_MP_MPn, pHeadLeft, pHead, pMod, pModRight);
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+    	code = createArcCodePPP(Arc.L_HP_MP_MPn, pHead, pMod, pModRight);
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+    	code = createArcCodePPP(Arc.L_HPp_HP_MP, pHeadLeft, pHead, pMod);
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+    	code = createArcCodePPP(Arc.L_HPp_MP_MPn, pHeadLeft, pMod, pModRight);
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+    	code = createArcCodePPP(Arc.L_HPp_HP_MPn, pHeadLeft, pHead, pModRight);
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+    	
+    	// feature posL posL+1 posR-1 posR
+		code = createArcCodePPPP(Arc.L_HP_HPn_MPp_MP, pHead, pHeadRight, pModLeft, pMod);
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+		code = createArcCodePPP(Arc.L_HP_MPp_MP, pHead, pModLeft, pMod);
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+		code = createArcCodePPP(Arc.L_HP_HPn_MP, pHead, pHeadRight, pMod);
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+		code = createArcCodePPP(Arc.L_HPn_MPp_MP, pHeadRight, pModLeft, pMod);
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+		code = createArcCodePPP(Arc.L_HP_HPn_MPp, pHead, pHeadRight, pModLeft);
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+    	
+		// feature posL-1 posL posR-1 posR
+		// feature posL posL+1 posR posR+1
+		code = createArcCodePPPP(Arc.L_HPp_HP_MPp_MP, pHeadLeft, pHead, pModLeft, pMod);
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+		
+		code = createArcCodePPPP(Arc.L_HP_HPn_MP_MPn, pHead, pHeadRight, pMod, pModRight);
+		addArcFeature(code, fv);
+		addArcFeature(code | attDist, fv);
+   	     	
+		int head = inst.formids[h] + 1, headP = inst.postagids[h] + 1;
+		int mod = inst.formids[m] + 1, modP = inst.postagids[m] + 1;
+    	code = createArcCodeWWPP(Arc.L_HW_MW_HP_MP, head, mod, headP, modP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeWPP(Arc.L_MW_HP_MP, mod, headP, modP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeWPP(Arc.L_HW_HP_MP, head, headP, modP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeWP(Arc.L_MW_HP, mod, headP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeWP(Arc.L_HW_MP, head, modP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	    	
+    	code = createArcCodeWP(Arc.L_HW_HP, head, headP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    	
+    	code = createArcCodeWP(Arc.L_MW_MP, mod, modP);
+    	addArcFeature(code, fv);
+    	addArcFeature(code | attDist, fv);
+    }
+
     /***
      * generate code
      */
@@ -1328,7 +1818,35 @@ public class FeatureFactory implements Serializable {
 	{
 		return ((((((((((x << tagNumBits) | y) << tagNumBits) | z ) << tagNumBits) | w ) << tagNumBits) | v ) << numArcFeatBits) | temp.ordinal()) << flagBits;
 	}
-/*	
+
+    public final long createArcCodeW(FeatureTemplate.Arc temp, long x) {
+    	return ((x << numArcFeatBits) | temp.ordinal()) << flagBits;
+    }
+    
+    public final long createArcCodeWP(FeatureTemplate.Arc temp, long x, long y) {
+    	return ((((x << tagNumBits) | y) << numArcFeatBits) | temp.ordinal()) << flagBits;
+    }
+    
+    public final long createArcCodeWW(FeatureTemplate.Arc temp, long x, long y) {
+    	return ((((x << wordNumBits) | y) << numArcFeatBits) | temp.ordinal()) << flagBits;
+    }
+    
+	public long createArcCodeWPP(FeatureTemplate.Arc temp, long x, long y, long z)
+	{
+		return ((((((x << tagNumBits) | y) << tagNumBits) | z ) << numArcFeatBits) | temp.ordinal()) << flagBits;
+	}
+	
+	public long createArcCodeWPPP(FeatureTemplate.Arc temp, long x, long y, long z, long w)
+	{
+		return ((((((((x << tagNumBits) | y) << tagNumBits) | z ) << tagNumBits) | w ) << numArcFeatBits) | temp.ordinal()) << flagBits;
+	}
+	
+	public long createArcCodeWWPP(FeatureTemplate.Arc temp, long x, long y, long z, long w)
+	{
+		return ((((((((x << wordNumBits) | y) << tagNumBits) | z ) << tagNumBits) | w ) << numArcFeatBits) | temp.ordinal()) << flagBits;
+	}
+	
+    /*	
 	public void addArcFeature(long code, FeatureVector fv)
 	{
 		int id = arcAlphabet.lookupIndex(code, numArcFeats);
@@ -1456,6 +1974,38 @@ public class FeatureFactory implements Serializable {
 	    x[0] = (int) (code & ((1 << tagNumBits)-1));
     }
     
+    private final void extractArcCodeW(long code, int[] x) {
+    	code = (code >> flagBits) >> numArcFeatBits;
+	    x[0] = (int) (code & ((1 << wordNumBits)-1));
+    }
+    
+    private final void extractArcCodeWP(long code, int[] x) {
+    	code = (code >> flagBits) >> numArcFeatBits;
+	    x[1] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[0] = (int) (code & ((1 << wordNumBits)-1));
+    }
+
+    private final void extractArcCodeWPP(long code, int[] x) {
+    	code = (code >> flagBits) >> numArcFeatBits;
+	    x[2] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[1] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[0] = (int) (code & ((1 << wordNumBits)-1));
+    }
+
+    private final void extractArcCodeWPPP(long code, int[] x) {
+    	code = (code >> flagBits) >> numArcFeatBits;
+	    x[3] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[2] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[1] = (int) (code & ((1 << tagNumBits)-1));
+	    code = code >> tagNumBits;
+	    x[0] = (int) (code & ((1 << wordNumBits)-1));
+    }
+
     public void fillMultiwayParameters(LowRankParam tensor, Parameters params) {
     	long[] codes = featureHashSet.toArray();
     	//long[] codes = arcAlphabet.toArray();
@@ -1756,6 +2306,9 @@ public class FeatureFactory implements Serializable {
 		ParameterNode hpn = tpn.node[0];
 		ParameterNode mpn = tpn.node[1];
 		ParameterNode dpn = tpn.node[2];
+		
+		ParameterNode hlpn = options.lexical ? params.pn.node[0].node[0] : null;
+		ParameterNode mlpn = options.lexical ? params.pn.node[0].node[1] : null;
 		int d = ParameterNode.d;
 
     	for (long code : codes) {
@@ -1775,6 +2328,7 @@ public class FeatureFactory implements Serializable {
     		Utils.Assert(label >= 0);
     		
     		int head = 0, mod = 0, hc = 0, mc = 0, svo = 0, t = 0;
+    		int hl = 0, ml = 0;
         	
     		//code = createArcCodePP(Arc.ATTDIST, 0, cf) | tid;
     		if (temp == Arc.ATTDIST.ordinal()) {
@@ -1791,6 +2345,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
         	
         	//code = createArcCodePP(Arc.HP, HP, cf) | tid;
@@ -1808,7 +2364,9 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
-    		}
+    			hl = 0;
+    			ml = 0;
+   		}
 
         	//code = createArcCodePP(Arc.MP, MP, cf) | tid;
     		else if (temp == Arc.MP.ordinal()) {
@@ -1825,6 +2383,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
 
         	//code = createArcCodePPP(Arc.HP_MP, HP, MP, cf) | tid;
@@ -1842,6 +2402,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
 
         	//code = createArcCodePPPP(Arc.HPp_HP_MP, HPp, HP, MP, cf) | tid;
@@ -1858,6 +2420,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
 
         	//code = createArcCodePPPP(Arc.HP_HPn_MP, HP, HPn, MP, cf) | tid;
@@ -1874,6 +2438,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
 
         	//code = createArcCodePPPP(Arc.HP_MPp_MP, HP, MPp, MP, cf) | tid;
@@ -1890,6 +2456,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
 
         	//code = createArcCodePPPP(Arc.HP_MP_MPn, HP, MP, MPn, cf) | tid;
@@ -1906,6 +2474,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
 
         	//code = createArcCodePPPPP(Arc.HPp_HP_MP_MPn, HPp, HP, MP, MPn, cf) | tid;
@@ -1921,6 +2491,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
 
         	//code = createArcCodePPPPP(Arc.HP_HPn_MP_MPn, HP, HPn, MP, MPn, cf) | tid;
@@ -1936,6 +2508,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
 
         	//code = createArcCodePPPPP(Arc.HP_HPn_MPp_MP, HP, HPn, MPp, MP, cf) | tid;
@@ -1951,6 +2525,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
 
         	//code = createArcCodePPPPP(Arc.HPp_HP_MPp_MP, HPp, HP, MPp, MP, cf) | tid;
@@ -1966,6 +2542,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
     		
         	//code = createArcCodeP(Arc.DIST, 0) | tid;
@@ -1981,6 +2559,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
         	
         	//code = createArcCodeP(Arc.B_HP, HP) | tid;
@@ -1996,6 +2576,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
 
         	//code = createArcCodeP(Arc.B_MP, MP) | tid;
@@ -2011,6 +2593,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
 
         	//code = createArcCodePP(Arc.B_HP_MP, HP, MP) | tid;
@@ -2026,6 +2610,8 @@ public class FeatureFactory implements Serializable {
         		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
     			svo = -1;
     			t = -1;
+    			hl = 0;
+    			ml = 0;
     		}
 
 		    //code = createArcCodeP(Arc.SV_NOUN, feature[TypoFeatureType.SV.ordinal()] + 1) | tid;
@@ -2047,6 +2633,8 @@ public class FeatureFactory implements Serializable {
     			//System.out.println("SV_NOUN: " + svo + " " + value);
     			t = -1;
     			label = -1;
+    			hl = 0;
+    			ml = 0;
     		}
     		
 	    	//code = createArcCodeP(Arc.SV_PRON, feature[TypoFeatureType.SV.ordinal()] + 1) | tid;
@@ -2068,6 +2656,8 @@ public class FeatureFactory implements Serializable {
     			//System.out.println("SV_PRON: " + svo + " " + value);
     			t = -1;
     			label = -1;
+    			hl = 0;
+    			ml = 0;
     		}
     	    	
 	    	//code = createArcCodeP(Arc.VO_NOUN, feature[TypoFeatureType.VO.ordinal()] + 1) | tid;
@@ -2089,6 +2679,8 @@ public class FeatureFactory implements Serializable {
     			//System.out.println("VO_NOUN: " + svo + " " + value);
     			t = -1;
     			label = -1;
+    			hl = 0;
+    			ml = 0;
     		}
     		
 	    	//code = createArcCodeP(Arc.VO_PRON, feature[TypoFeatureType.VO.ordinal()] + 1) | tid;
@@ -2110,6 +2702,8 @@ public class FeatureFactory implements Serializable {
     			//System.out.println("VO_PRON: " + svo + " " + value);
     			t = -1;
     			label = -1;
+    			hl = 0;
+    			ml = 0;
     		}
     		
 		    //code = createArcCodeP(Arc.ADP_NOUN, feature[TypoFeatureType.Prep.ordinal()] + 1) | tid;
@@ -2130,6 +2724,8 @@ public class FeatureFactory implements Serializable {
         		svo = -1;
     			t = v * offset + dir;
     			//System.out.println("PREP_NOUN: " + t + " " + value);
+    			hl = 0;
+    			ml = 0;
     		}
     		    	
 		    //code = createArcCodeP(Arc.ADP_PRON, feature[TypoFeatureType.Prep.ordinal()] + 1) | tid;
@@ -2150,6 +2746,8 @@ public class FeatureFactory implements Serializable {
         		svo = -1;
     			t = tpn.featureBias[0] + v * offset + dir;
     			//System.out.println("PREP_PRON: " + t + " " + value);
+    			hl = 0;
+    			ml = 0;
     		}
     		    	
 		    //code = createArcCodeP(Arc.GEN, feature[TypoFeatureType.Gen.ordinal()] + 1) | tid;
@@ -2170,6 +2768,8 @@ public class FeatureFactory implements Serializable {
         		svo = -1;
     			t = tpn.featureBias[1] + v * offset + dir;
     			//System.out.println("GEN: " + t + " " + value);
+    			hl = 0;
+    			ml = 0;
     		}
     		    	
 		    //code = createArcCodeP(Arc.ADJ, feature[TypoFeatureType.Adj.ordinal()] + 1) | tid;
@@ -2190,12 +2790,155 @@ public class FeatureFactory implements Serializable {
         		svo = -1;
     			t = tpn.featureBias[2] + v * offset + dir;
     			//System.out.println("ADJ: " + t + " " + value);
+    			hl = 0;
+    			ml = 0;
+    		}
+
+    		//code = createArcCodeWP(Arc.HEAD_EMB, i, 0);
+    		else if (temp == Arc.HEAD_EMB.ordinal()) {
+    			extractArcCodeWP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0);
+    			//Utils.Assert(label == 0);
+    			head = 0;
+    			mod = 0;
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[1] - 1)
+    					: dpn.featureBias[3] + (x[1] - 1) * 2 * d + (binDist - 1);
+        		//label = 0;
+    			label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    			hl = hlpn.featureBias[0] + (x[0] - 1);
+    			ml = 0;
+    		}
+    		
+    		//code = createArcCodeWP(Arc.MOD_EMB, i, 0);
+    		else if (temp == Arc.MOD_EMB.ordinal()) {
+    			extractArcCodeWP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0);
+    			Utils.Assert(/*label == 0 && */binDist >= 0);
+    			head = 0;
+    			mod = 0;
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[1] - 1)
+    					: dpn.featureBias[3] + (x[1] - 1) * 2 * d + (binDist - 1);
+        		//label = 0;
+    			label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    			hl = 0;
+    			ml = mlpn.featureBias[0] + (x[0] - 1);
+    		}
+    		
+    		//code = createArcCodeW(Arc.B_HEAD_EMB, i);
+    		else if (temp == Arc.B_HEAD_EMB.ordinal()) {
+				extractArcCodeW(code, x);
+				Utils.Assert(x[0] > 0);
+				Utils.Assert(label == 0 && binDist - 1 < d);
+				head = 0;
+				mod = 0;
+				hc = 0;
+				mc = 0;
+				binDist = binDist == 0 ? 0 : dpn.featureBias[2] + (binDist - 1);
+	    		label = 0;
+				svo = -1;
+				t = -1;
+				hl = hlpn.featureBias[0] + (x[0] - 1);
+				ml = 0;
+    		}
+    		
+    		//code = createArcCodeW(Arc.B_MOD_EMB, i);
+    		else if (temp == Arc.B_MOD_EMB.ordinal()) {
+				extractArcCodeW(code, x);
+				Utils.Assert(x[0] > 0);
+				Utils.Assert(label == 0 && binDist - 1 < d && binDist >= 0);
+				head = 0;
+				mod = 0;
+				hc = 0;
+				mc = 0;
+				binDist = binDist == 0 ? 0 : dpn.featureBias[2] + (binDist - 1);
+	    		label = 0;
+				svo = -1;
+				t = -1;
+				hl = 0;
+				ml = mlpn.featureBias[0] + (x[0] - 1);
+    		}
+
+	    	//code = createArcCodeWPPP(Arc.HW_HP_MP, head, HP, MP, 0);
+    		else if (temp == Arc.HW_HP_MP.ordinal()) {
+    			extractArcCodeWPPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0 && x[3] > 0);
+    			head = hpn.featureBias[0] + (x[1] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[3] - 1)
+    					: dpn.featureBias[3] + (x[3] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    			hl = hlpn.featureBias[1] + (x[0] - 1);
+    			ml = 0;
+    		}
+
+	    	//code = createArcCodeWPP(Arc.HW_MP, head, MP, 0);
+    		else if (temp == Arc.HW_MP.ordinal()) {
+    			extractArcCodeWPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0);
+    			head = 0;
+    			mod = mpn.featureBias[0] + (x[1] - 1);
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[2] - 1)
+    					: dpn.featureBias[3] + (x[2] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    			hl = hlpn.featureBias[1] + (x[0] - 1);
+    			ml = 0;
+    		}
+
+	    	//code = createArcCodeWPPP(Arc.MW_HP_MP, mod, HP, MP, 0);
+    		else if (temp == Arc.MW_HP_MP.ordinal()) {
+    			extractArcCodeWPPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0 && x[3] > 0);
+    			head = hpn.featureBias[0] + (x[1] - 1);
+    			mod = mpn.featureBias[0] + (x[2] - 1);
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[3] - 1)
+    					: dpn.featureBias[3] + (x[3] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    			hl = 0;
+    			ml = mlpn.featureBias[1] + (x[0] - 1);
+    		}
+
+    		//code = createArcCodeWPP(Arc.MW_HP, mod, HP, 0);
+    		else if (temp == Arc.MW_HP.ordinal()) {
+    			extractArcCodeWPP(code, x);
+    			Utils.Assert(x[0] > 0 && x[1] > 0 && x[2] > 0);
+    			head = hpn.featureBias[0] + (x[1] - 1);
+    			mod = 0;
+    			hc = 0;
+    			mc = 0;
+    			binDist = binDist == 0 ? dpn.featureBias[0] + (x[2] - 1)
+    					: dpn.featureBias[3] + (x[2] - 1) * 2 * d + (binDist - 1);
+        		label = label == 0 ? 0 : lpn.featureBias[0] + (label - 1);
+    			svo = -1;
+    			t = -1;
+    			hl = 0;
+    			ml = mlpn.featureBias[1] + (x[0] - 1);
     		}
 
     		else {
     			continue;
     		}
 
+	    	
    			Utils.Assert(head < 0 || hpn.isActive[head]); 
    			Utils.Assert(mod < 0 || mpn.isActive[mod]); 
    			Utils.Assert(hc < 0 || hcpn.isActive[hc]); 
@@ -2209,7 +2952,7 @@ public class FeatureFactory implements Serializable {
    			//if (svo >= 0)
    			//	System.out.println("aaa");
    			if (Math.abs(value) > 1e-8)
-   				tensor.putEntry(head, mod, hc, mc, binDist, label, svo, t, value);
+   				tensor.putEntry(head, mod, hc, mc, binDist, label, svo, t, hl, ml, value);
     	}
     }
 }

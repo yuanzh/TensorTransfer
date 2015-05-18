@@ -190,11 +190,12 @@ public class ParameterNode implements Serializable {
 			else {
 				lexical.node[0] = new ParameterNode(options, pipe, options.R * options.extraR); 
 				lexical.node[0].setNodeNum(0);
-				lexical.node[0].setFeatureSizeAndBias(null);
+				int[] dim1 = {1, pipe.wv.size, pipe.wv.enVocSize};
+				lexical.node[0].setFeatureSizeAndBias(dim1);
 				
 				lexical.node[1] = new ParameterNode(options, pipe, options.R * options.extraR); 
 				lexical.node[1].setNodeNum(0);
-				lexical.node[1].setFeatureSizeAndBias(null);
+				lexical.node[1].setFeatureSizeAndBias(dim1);
 			}
 			
 			// delexical
@@ -395,7 +396,7 @@ public class ParameterNode implements Serializable {
 		}
 	}
 	
-	public void updateMIRA(double alpha, int updCnt) {
+	public void updateMIRA(double alpha, int updCnt, double scale) {
 		
 		if (featureSize > 0) {
 			double lr = Math.min(alpha, C);
@@ -404,7 +405,7 @@ public class ParameterNode implements Serializable {
 				dfv.aggregate();
 				for (int i = 0, L = dfv.size(); i < L; ++i) {
 					int x = dfv.x(i);
-					double g = dfv.value(i) * (1 - gamma);
+					double g = dfv.value(i) * (1 - gamma) * scale;
 					param[r][x] += lr * g;
 					total[r][x] += lr * updCnt * g;
 				}
@@ -412,7 +413,7 @@ public class ParameterNode implements Serializable {
 			}
 		}
 		for (int i = 0; i < nodeNum; ++i)
-			node[i].updateMIRA(alpha, updCnt);
+			node[i].updateMIRA(alpha, updCnt, scale);
 	}
 	
 	public double gradientl2Norm() {

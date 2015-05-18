@@ -213,7 +213,7 @@ public class Parameters implements Serializable {
 			}
 			
 			if (gamma < 1.0)
-				pn.updateMIRA(alpha, updCnt);
+				pn.updateMIRA(alpha, updCnt, 1.0);
 	    		
 			break;
 		default:
@@ -300,7 +300,7 @@ public class Parameters implements Serializable {
 				}
 				
 				if (gamma < 1.0)
-					pn.updateMIRA(alpha, updCnt);
+					pn.updateMIRA(alpha, updCnt, gold.lang == options.targetLang ? 5.0 : 1.0);
 		    		
 				break;
 			default:
@@ -378,7 +378,7 @@ public class Parameters implements Serializable {
 				}
 				
 				if (gamma < 1.0)
-					pn.updateMIRA(alpha, updCnt);
+					pn.updateMIRA(alpha, updCnt, gold.lang == options.targetLang ? 5.0 : 1.0);
 		    		
 				break;
 			default:

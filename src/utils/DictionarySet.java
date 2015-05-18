@@ -18,12 +18,13 @@ public class DictionarySet implements Serializable {
     private static final String token_end = "#TOKEN_END#";
     private static final String token_mid = "#TOKEN_MID#";
 
+    public transient WordVector wv;
 
 	public enum DictionaryTypes 
 	{
 		POS,
 		DEPLABEL,
-		WORDVEC,
+		WORD,
 		
 		TYPE_END;
 	}
@@ -44,8 +45,10 @@ public class DictionarySet implements Serializable {
 			dicts[i] = new Dictionary();
 			int id = dicts[i].lookupIndex(unseen);	// id=1 means unseen item (pos,word,etc.)
 			Utils.Assert(id == 1);
-            if (i == DictionaryTypes.POS.ordinal())
-                initDict(DictionaryTypes.POS, dicts[i]);
+			if (i == DictionaryTypes.POS.ordinal())
+				initDict(DictionaryTypes.POS, dicts[i]);
+			else if (i == DictionaryTypes.WORD.ordinal())
+				initDict(DictionaryTypes.WORD, dicts[i]);
 		}
 	}
     
@@ -55,13 +58,13 @@ public class DictionarySet implements Serializable {
         Utils.Assert(id == 1);
 
         // add special tokens for POS tags and words
-        if (tag == DictionaryTypes.POS) {
-            id = dict.lookupIndex(token_start);
-            Utils.Assert(id == 2);
-            id = dict.lookupIndex(token_end);
-            Utils.Assert(id == 3);
-            id = dict.lookupIndex(token_mid);
-            Utils.Assert(id == 4);
+        if (tag == DictionaryTypes.POS || tag == DictionaryTypes.WORD) {
+	        id = dict.lookupIndex(token_start);
+	        Utils.Assert(id == 2);
+	        id = dict.lookupIndex(token_end);
+	        Utils.Assert(id == 3);
+	        id = dict.lookupIndex(token_mid);
+	        Utils.Assert(id == 4);
         }
     }
 

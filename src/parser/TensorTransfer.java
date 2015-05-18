@@ -15,6 +15,7 @@ import parser.tensor.LowRankParam;
 import parser.tensor.ParameterNode;
 import utils.TypologicalInfo;
 import utils.Utils;
+import utils.WordVector;
 
 public class TensorTransfer {
 
@@ -331,6 +332,13 @@ public class TensorTransfer {
 		FeatureRepo fr = new FeatureRepo(options, pipe.ff);
 		pipe.fr = fr;
 		pipe.ff.fr = fr;
+		
+		if (options.lexical) {
+			WordVector wv = new WordVector(options);
+			pipe.wv = wv;
+			pipe.ff.wv = wv;
+			pipe.dictionaries.wv = wv;
+		}
        
         in.close();
         pipe.closeAlphabets();

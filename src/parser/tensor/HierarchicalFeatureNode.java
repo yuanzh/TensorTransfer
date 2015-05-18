@@ -45,8 +45,26 @@ public class HierarchicalFeatureNode extends FeatureNode {
 		ParameterNode delexical = pn;
 		
 		if (options.lexical) {
-			// TODO: add lexical
 			delexical = pn.node[1];
+			
+			headLexicalData = new FeatureDataItem[n];
+			modLexicalData = new FeatureDataItem[n];
+			for (int i = 0; i < n; ++i) {
+				ParameterNode hpn = pn.node[0].node[0];
+				ParameterNode mpn = pn.node[0].node[1];
+				int lexRank = hpn.rank;
+				Utils.Assert(mpn.rank == lexRank);
+				FeatureVector fv = pipe.ff.createLexicalFeatures(inst, i, hpn.featureSize, hpn.featureBias);
+				double[] headScore = new double[lexRank];
+				double[] modScore = new double[lexRank];
+				
+				for (int r = 0; r < lexRank; ++r) {
+					headScore[r] = fv.dotProduct(hpn.param[r]);
+					modScore[r] = fv.dotProduct(mpn.param[r]);
+				}
+				headLexicalData[i] = new FeatureDataItem(fv, headScore);
+				modLexicalData[i] = new FeatureDataItem(fv, modScore);
+			}
 		}
 		
 		headContextData = new FeatureDataItem[n];
@@ -160,6 +178,22 @@ public class HierarchicalFeatureNode extends FeatureNode {
 		int binDist = pipe.ff.getBinnedDistance(h - m);
 		int lang = inst.lang;
 		
+		double[] lexScore = null;
+		if (options.lexical) {
+			int rank = pn.rank;
+			int rank2 = options.extraR;
+			lexScore = new double[rank];
+			
+			double[] headLexicalScore = headLexicalData[h].score;
+			double[] modLexicalScore = modLexicalData[m].score;
+			for (int r = 0; r < rank; ++r) {
+				int st = r * rank2;
+				for (int r2 = 0; r2 < rank2; ++r2) {
+					lexScore[r] += headLexicalScore[st + r2] * modLexicalScore[st + r2];
+				}
+			}
+		}
+
 		double[] hcScore = headContextData[h].score;
 		double[] mcScore = modContextData[m].score;
 		
@@ -190,7 +224,10 @@ public class HierarchicalFeatureNode extends FeatureNode {
 		}
 		
 		//return Utils.sum(Utils.dot(hcScore, mcScore, tScore));
-		return Utils.sum(Utils.dot_s(finalScore, hcScore, mcScore, tScore));
+		if (options.lexical) 
+			return Utils.sum(Utils.dot_s(finalScore, lexScore, hcScore, mcScore, tScore));
+		else
+			return Utils.sum(Utils.dot_s(finalScore, hcScore, mcScore, tScore));
 	}
 	/*
 	@Override
@@ -372,6 +409,25 @@ public class HierarchicalFeatureNode extends FeatureNode {
 		ParameterNode mpn = tpn.node[1];
 		ParameterNode dpn = tpn.node[2];
 
+		double[] lexScore = null;
+		ParameterNode hlpn = options.lexical ? pn.node[0].node[0] : null;
+		ParameterNode mlpn = options.lexical ? pn.node[0].node[1] : null;
+		double[] headLexicalScore = options.lexical ? headLexicalData[h].score : null;
+		double[] modLexicalScore = options.lexical ? modLexicalData[m].score : null;
+		
+		if (options.lexical) {
+			int rank = pn.rank;
+			int rank2 = options.extraR;
+			lexScore = new double[rank];
+			
+			for (int r = 0; r < rank; ++r) {
+				int st = r * rank2;
+				for (int r2 = 0; r2 < rank2; ++r2) {
+					lexScore[r] += headLexicalScore[st + r2] * modLexicalScore[st + r2];
+				}
+			}
+		}
+
 		FeatureVector tfv = pipe.fr.getTypoFv(hp, mp, binDist, lang);
 		//Utils.Assert(tfv.size() == 0);
 		for (int r = 0; r < tpn.rank; ++r) {
@@ -387,23 +443,45 @@ public class HierarchicalFeatureNode extends FeatureNode {
 			for (int r = 0; r < apn.rank; ++r)
 				aScore[r] += afv.dotProduct(apn.param[r]);
 			
+			if (options.lexical) {
+				int rank = pn.rank;
+				int rank2 = options.extraR;
+
+				for (int r = 0; r < rank; ++r) {
+					double tmp = v[r] * hcScore[r] * mcScore[r] * aScore[r];
+					int st = r * rank2;
+					for (int r2 = 0; r2 < rank2; ++r2) {
+						// update head lexical
+						double dv = tmp * modLexicalScore[st + r2];
+						hlpn.dFV[st + r2].addEntries(headLexicalData[h].fv, dv);
+						
+						// update mod lexical
+						dv = tmp * headLexicalScore[st + r2];
+						mlpn.dFV[st + r2].addEntries(modLexicalData[m].fv, dv);
+					}
+				}
+			}
+
 			// update head context
 			//g = Utils.dot(v, mcScore, aScore);
-			g = Utils.dot_s(gScore, v, mcScore, aScore);
+			g = options.lexical ? Utils.dot_s(gScore, v, lexScore, mcScore, aScore)
+					: Utils.dot_s(gScore, v, mcScore, aScore);
 			for (int r = 0; r < hcpn.rank; ++r) {
 				hcpn.dFV[r].addEntries(headContextData[h].fv, g[r]);
 			}
 			
 			// update mod context
 			//g = Utils.dot(v, hcScore, aScore);
-			g = Utils.dot_s(gScore, v, hcScore, aScore);
+			g = options.lexical ? Utils.dot_s(gScore, v, lexScore, hcScore, aScore)
+					: Utils.dot_s(gScore, v, hcScore, aScore);
 			for (int r = 0; r < mcpn.rank; ++r) {
 				mcpn.dFV[r].addEntries(modContextData[m].fv, g[r]);
 			}
 			
 			// update svo
 			//g = Utils.dot(v, hcScore, mcScore);
-			g = Utils.dot_s(gScore, v, hcScore, mcScore);
+			g = options.lexical ? Utils.dot_s(gScore, v, lexScore, hcScore, mcScore)
+					: Utils.dot_s(gScore, v, hcScore, mcScore);
 			for (int r = 0; r < apn.rank; ++r) {
 				apn.dFV[r].addEntries(afv, g[r]);
 			}

@@ -70,14 +70,16 @@ public class TypologicalInfo {
 			lang2Family[i] = Integer.parseInt(data[1 + featureNum + 1]);
 		}
 		
-		for (int i = 0; i < langNum; ++i) {
-			data = br.readLine().trim().split("\\s+");
-			Utils.Assert(data.length == langNum);
-			for (int j = 0; j < langNum; ++j)
-				typoVec[i][j] = Double.parseDouble(data[j]);
-			//System.out.println(options.langString[i] + " " + typoVec[i][0]);
-			Utils.normalize(typoVec[i]);
-		}
+//		if (!options.typoFile.contains("euro")) {
+//			for (int i = 0; i < langNum; ++i) {
+//				data = br.readLine().trim().split("\\s+");
+//				Utils.Assert(data.length == langNum);
+//				for (int j = 0; j < langNum; ++j)
+//					typoVec[i][j] = Double.parseDouble(data[j]);
+//				//System.out.println(options.langString[i] + " " + typoVec[i][0]);
+//				Utils.normalize(typoVec[i]);
+//			}
+//		}
 		br.close();
 	}
 	
