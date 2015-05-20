@@ -298,14 +298,14 @@ public class DependencyPipe implements Serializable {
     		//if (options.maxNumSent != -1 && cnt >= options.maxNumSent) break;
         }
         System.out.println("Done.");
-				
-        Distribution dist = new Distribution(lt, this, options);
-		DependencyInstance[] insts = shuffle(lt, dist);
+		
+        //Distribution dist = new Distribution(lt, this, options);
+		//DependencyInstance[] insts = shuffle(lt, dist);
         //DependencyInstance[] insts = greedyShuffle(lt, dist);
         //DependencyInstance[] tmpinsts = lengthShuffle(lt, dist);
-        //DependencyInstance[] tmpinsts = greedyShuffle2(lt);
+        DependencyInstance[] tmpinsts = greedyShuffle2(lt);
         
-        //DependencyInstance[] insts = dupAndRandom(tmpinsts);
+        DependencyInstance[] insts = dupAndRandom(tmpinsts);
         //DependencyInstance[] insts = removeUnsup(tmpinsts);
         //DependencyInstance[] insts = new DependencyInstance[options.supSent];
         //for (int i = 0; i < options.supSent; ++i)

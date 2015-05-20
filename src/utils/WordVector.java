@@ -27,11 +27,13 @@ public class WordVector {
 	}
 	
 	public String constructFileName(int l) {
-		return options.dataDir + "/universal_treebanks_v2.0/" + langString[l] + "-small5-embedding.100";
+		//return options.dataDir + "/universal_treebanks_v2.0/" + langString[l] + "-small5-embedding.100";
+		return options.dataDir + "/universal_treebanks_v2.0/" + langString[l] + "-en-embedding3";
 	}
 	
 	public String constructTransFileName(int l) {
-		return options.dataDir + "/universal_treebanks_v2.0/" + langString[l] + "-en.small5.pair";
+		//return options.dataDir + "/universal_treebanks_v2.0/" + langString[l] + "-en.small5.pair";
+		return options.dataDir + "/universal_treebanks_v2.0/" + langString[l] + "-en.pair";
 	}
 	
 	public void loadWordVector() throws IOException {
