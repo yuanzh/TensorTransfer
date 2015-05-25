@@ -85,6 +85,10 @@ public class TensorTransfer {
     			pipe.ff.fillHierarchichalParameters(tensor, parameters);
     			tensor.decomposeHierarchicalway();
     		}
+    		else if (options.tensorMode == TensorMode.TMultiway) {
+    			pipe.ff.fillTMultiwayParameters(tensor, parameters);
+    			tensor.decomposeTMultiway();
+    		}
     		else
     			Utils.ThrowException("not implemented yet");
     		

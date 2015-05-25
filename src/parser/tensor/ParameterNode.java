@@ -71,6 +71,8 @@ public class ParameterNode implements Serializable {
 			constructMultiwayStructure();
 		else if (options.tensorMode == TensorMode.Hierarchical)
 			constructHierarchicalStructure();
+		else if (options.tensorMode == TensorMode.TMultiway)
+			constructTMultiwayStructure();
 		else
 			Utils.ThrowException("unsupported structure");
 	}
@@ -168,6 +170,55 @@ public class ParameterNode implements Serializable {
 		if (options.learnLabel) {
 			int[] dim4 = {1, labelNum};
 			node[5].setFeatureSizeAndBias(dim4); // bias, label
+		}
+	}
+	
+	public void constructTMultiwayStructure() {
+		setEmptyFeature();
+		setNodeNum(options.lexical ? 9 : 7);
+		for (int i = 0; i < nodeNum; ++i) {
+			node[i] = new ParameterNode(options, pipe, options.R);
+			node[i].setNodeNum(0);
+		}
+
+		// head/mod
+		int[] dim1 = {1, posNum};
+		node[0].setFeatureSizeAndBias(dim1);
+		node[1].setFeatureSizeAndBias(dim1);
+		
+		// context
+		int[] dim2 = {1, pipe.typo.classNum, pipe.typo.familyNum, 
+				posNum * pipe.typo.classNum, posNum * pipe.typo.familyNum,
+				posNum * pipe.typo.classNum, posNum * pipe.typo.familyNum}; 
+		node[2].setFeatureSizeAndBias(dim2);
+		node[3].setFeatureSizeAndBias(dim2);
+		
+		// typo
+		int offset1 = 2 * 2;
+		int offset2 = 2;
+		int[] dim4 = {1, pipe.typo.getNumberOfValues(TypoFeatureType.SV) * offset1,	// NOUN,
+				pipe.typo.getNumberOfValues(TypoFeatureType.SV) * offset1, // PRON
+				pipe.typo.getNumberOfValues(TypoFeatureType.VO) * offset1, // NOUN
+				pipe.typo.getNumberOfValues(TypoFeatureType.VO) * offset1,
+				pipe.typo.getNumberOfValues(TypoFeatureType.Prep) * offset2, // NOUN
+				pipe.typo.getNumberOfValues(TypoFeatureType.Prep) * offset2, // PRON,
+				pipe.typo.getNumberOfValues(TypoFeatureType.Gen) * offset2,
+				pipe.typo.getNumberOfValues(TypoFeatureType.Adj) * offset2};
+		node[4].setFeatureSizeAndBias(dim4);
+		
+		// direction and distance
+		int[] dim5 = {1, pipe.typo.classNum, pipe.typo.familyNum,
+				d, d * 2 * pipe.typo.classNum, d * 2 * pipe.typo.familyNum}; // bias, (direction, distance)
+		node[5].setFeatureSizeAndBias(dim5);
+		
+		int[] dim6 = {1, labelNum};
+		node[6].setFeatureSizeAndBias(dim6); // bias, label
+
+		// lexical
+		if (options.lexical) {
+			int[] dim3 = {1, pipe.wv.size, pipe.wv.enVocSize};
+			node[7].setFeatureSizeAndBias(dim3);
+			node[8].setFeatureSizeAndBias(dim3);
 		}
 	}
 	

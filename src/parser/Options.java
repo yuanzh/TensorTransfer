@@ -31,6 +31,7 @@ public class Options implements Cloneable, Serializable {
 		Threeway,
 		Multiway,
 		Hierarchical,
+		TMultiway,
 	}
 	
 	public UpdateMode updateMode = UpdateMode.AdaGrad;

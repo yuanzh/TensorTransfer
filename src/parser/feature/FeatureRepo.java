@@ -94,6 +94,40 @@ public class FeatureRepo {
 				emptyLabelFv.addEntry(0);
 			}
 		}
+		else if (options.tensorMode == TensorMode.TMultiway) {
+			contextFv = new FeatureVector[posNum * posNum * typo.langNum];
+			for (int pp = 0; pp < posNum; ++pp) {
+				for (int np = 0; np < posNum; ++np) {
+					for (int l = 0; l < typo.langNum; ++l) {
+						contextFv[pp * posNum * typo.langNum + np * typo.langNum + l]
+								= ff.createContextPOSFeatures(pp, np, l, pn.node[2].featureSize, pn.node[02].featureBias);
+						Utils.Assert(pn.node[2].featureSize == pn.node[3].featureSize);
+					}
+				}
+			}
+
+			labelFv = new FeatureVector[labelNum];
+			Utils.Assert(pn.node[6].featureSize == 1 + labelNum);
+			for (int i = 0; i < labelNum; ++i) {
+				labelFv[i] = ff.createLabelFeatures(i, pn.node[6].featureSize, pn.node[6].featureBias);
+			}
+			emptyLabelFv = new FeatureVector(pn.node[6].featureSize);
+			emptyLabelFv.addEntry(0);
+
+			posFv = new FeatureVector[posNum];
+			Utils.Assert(pn.node[0].featureSize == 1 + posNum);
+			for (int p = 0; p < posNum; ++p) {
+				posFv[p] = ff.createPosFeatures(p, pn.node[0].featureSize, pn.node[0].featureBias);
+				Utils.Assert(pn.node[0].featureSize == pn.node[1].featureSize);
+			}
+
+			ddFv = new FeatureVector[2 * d * typo.langNum];
+			for (int i = 0; i < 2 * d; ++i) {
+				for (int l = 0; l < typo.langNum; ++l) {
+					ddFv[i * typo.langNum + l] = ff.createDirDistTypoFeatures(i, l, pn.node[5].featureSize, pn.node[5].featureBias);
+				}
+			}
+		}
 		else if (options.tensorMode == TensorMode.Hierarchical) {
 			ParameterNode delexical = pn;
 			if (options.lexical) {

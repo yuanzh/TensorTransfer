@@ -26,6 +26,9 @@ public abstract class FeatureNode {
 		else if (options.tensorMode == TensorMode.Hierarchical) {
 			return new HierarchicalFeatureNode(options, inst, model);
 		}
+		else if (options.tensorMode == TensorMode.TMultiway) {
+			return new TMultiwayFeatureNode(options, inst, model);
+		}
 		else {
 			Utils.ThrowException("not supported yet");
 		}
