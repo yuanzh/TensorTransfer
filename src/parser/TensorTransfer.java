@@ -348,6 +348,145 @@ public class TensorTransfer {
         pipe.closeAlphabets();
     }
     
+    public void outputWeight() {
+    	ParameterNode pn = parameters.pn;
+		ParameterNode hcpn = pn.node[2];
+		ParameterNode mcpn = pn.node[3];
+		ParameterNode lpn = pn.node[6];
+		ParameterNode tpn = pn.node[4];
+		ParameterNode hpn = pn.node[0];
+		ParameterNode mpn = pn.node[1];
+		ParameterNode dpn = pn.node[5];
+		
+		// Adj-Noun + left arc + verb + noun
+		double[] hcw = getCol(hcpn.param, 0);
+		double[] mcw = getCol(mcpn.param, 0);
+		double[] lw = getCol(lpn.param, 0);
+		double[] tw = getCol(tpn.param, tpn.featureBias[7]);
+		double[] hw = getCol(hpn.param, hpn.featureBias[0] + pipe.ff.POS_VERB);
+		double[] mw = getCol(mpn.param, mpn.featureBias[0] + pipe.ff.POS_NOUN);
+		double[] dw = getCol(dpn.param, dpn.featureBias[3]);
+		double w = Utils.sum(Utils.dot(hcw, mcw, lw, tw, hw, mw, dw));
+		System.out.println("Adj-Noun + left arc + verb + noun: " + w);
+		
+		// Adj-Noun + left arc + noun + adj
+		hcw = getCol(hcpn.param, 0);
+		mcw = getCol(mcpn.param, 0);
+		lw = getCol(lpn.param, 0);
+		tw = getCol(tpn.param, tpn.featureBias[7]);
+		hw = getCol(hpn.param, hpn.featureBias[0] + pipe.ff.POS_NOUN);
+		mw = getCol(mpn.param, mpn.featureBias[0] + pipe.ff.POS_ADJ);
+		dw = getCol(dpn.param, dpn.featureBias[3]);
+		w = Utils.sum(Utils.dot(hcw, mcw, lw, tw, hw, mw, dw));
+		System.out.println("Adj-Noun + left arc + noun + adj: " + w);
+		
+		// Adj-Noun + right arc + adp + noun
+		hcw = getCol(hcpn.param, 0);
+		mcw = getCol(mcpn.param, 0);
+		lw = getCol(lpn.param, 0);
+		tw = getCol(tpn.param, tpn.featureBias[7]);
+		hw = getCol(hpn.param, hpn.featureBias[0] + pipe.ff.POS_ADP);
+		mw = getCol(mpn.param, mpn.featureBias[0] + pipe.ff.POS_NOUN);
+		dw = getCol(dpn.param, dpn.featureBias[3] + 5);
+		w = Utils.sum(Utils.dot(hcw, mcw, lw, tw, hw, mw, dw));
+		System.out.println("Adj-Noun + right arc + noun + adp: " + w);
+		
+                // Adj-Noun + left arc + verb + noun
+                hcw = getCol(hcpn.param, 0);
+                mcw = getCol(mcpn.param, 0);
+                lw = getCol(lpn.param, 0);
+                tw = getCol(tpn.param, tpn.featureBias[7]);
+                hw = getCol(hpn.param, hpn.featureBias[0] + pipe.ff.POS_VERB);
+                mw = getCol(mpn.param, mpn.featureBias[0] + pipe.ff.POS_PRON);
+                dw = getCol(dpn.param, dpn.featureBias[3]);
+                w = Utils.sum(Utils.dot(hcw, mcw, lw, tw, hw, mw, dw));
+                System.out.println("Adj-Noun + left arc + verb + pron: " + w);
+
+                // Adj-Noun + right arc + noun + noun
+                hcw = getCol(hcpn.param, 0);
+                mcw = getCol(mcpn.param, 0);
+                lw = getCol(lpn.param, 0);
+                tw = getCol(tpn.param, tpn.featureBias[7]);
+                hw = getCol(hpn.param, hpn.featureBias[0] + pipe.ff.POS_NOUN);
+                mw = getCol(mpn.param, mpn.featureBias[0] + pipe.ff.POS_NOUN);
+                dw = getCol(dpn.param, dpn.featureBias[3]);
+                w = Utils.sum(Utils.dot(hcw, mcw, lw, tw, hw, mw, dw));
+                System.out.println("Adj-Noun + left arc + noun + noun: " + w);
+
+		// Subj-Verb + left arc + verb + noun
+		hcw = getCol(hcpn.param, 0);
+		mcw = getCol(mcpn.param, 0);
+		lw = getCol(lpn.param, lpn.featureBias[0] + pipe.ff.LABEL_SBJ);
+		tw = getCol(tpn.param, tpn.featureBias[0]);
+		hw = getCol(hpn.param, hpn.featureBias[0] + pipe.ff.POS_VERB);
+		mw = getCol(mpn.param, mpn.featureBias[0] + pipe.ff.POS_NOUN);
+		dw = getCol(dpn.param, dpn.featureBias[3]);
+		w = Utils.sum(Utils.dot(hcw, mcw, lw, tw, hw, mw, dw));
+		System.out.println("Subj-Verb + left arc + verb + noun: " + w);
+		
+		// Subj-Verb + left arc + noun + adj
+		hcw = getCol(hcpn.param, 0);
+		mcw = getCol(mcpn.param, 0);
+		lw = getCol(lpn.param, lpn.featureBias[0] + pipe.ff.LABEL_SBJ);
+		tw = getCol(tpn.param, tpn.featureBias[0]);
+		hw = getCol(hpn.param, hpn.featureBias[0] + pipe.ff.POS_NOUN);
+		mw = getCol(mpn.param, mpn.featureBias[0] + pipe.ff.POS_ADJ);
+		dw = getCol(dpn.param, dpn.featureBias[3]);
+		w = Utils.sum(Utils.dot(hcw, mcw, lw, tw, hw, mw, dw));
+		System.out.println("Subj-Verb + left arc + noun + adj: " + w);
+		
+		// Subj-Verb + right arc + adp + noun
+		hcw = getCol(hcpn.param, 0);
+		mcw = getCol(mcpn.param, 0);
+		lw = getCol(lpn.param, lpn.featureBias[0] + pipe.ff.LABEL_SBJ);
+		tw = getCol(tpn.param, tpn.featureBias[0]);
+		hw = getCol(hpn.param, hpn.featureBias[0] + pipe.ff.POS_ADP);
+		mw = getCol(mpn.param, mpn.featureBias[0] + pipe.ff.POS_NOUN);
+		dw = getCol(dpn.param, dpn.featureBias[3] + 5);
+		w = Utils.sum(Utils.dot(hcw, mcw, lw, tw, hw, mw, dw));
+		System.out.println("Subj-Verb + left arc + adp + noun: " + w);
+		
+		// Adp-Noun + left arc + verb + noun
+		hcw = getCol(hcpn.param, 0);
+		mcw = getCol(mcpn.param, 0);
+		lw = getCol(lpn.param, 0);
+		tw = getCol(tpn.param, tpn.featureBias[4] + 1);
+		hw = getCol(hpn.param, hpn.featureBias[0] + pipe.ff.POS_VERB);
+		mw = getCol(mpn.param, mpn.featureBias[0] + pipe.ff.POS_NOUN);
+		dw = getCol(dpn.param, dpn.featureBias[3]);
+		w = Utils.sum(Utils.dot(hcw, mcw, lw, tw, hw, mw, dw));
+		System.out.println("Adp-Noun + left arc + verb + noun: " + w);
+		
+		// Adp-Noun + left arc + noun + adj
+		hcw = getCol(hcpn.param, 0);
+		mcw = getCol(mcpn.param, 0);
+		lw = getCol(lpn.param, 0);
+		tw = getCol(tpn.param, tpn.featureBias[4] + 1);
+		hw = getCol(hpn.param, hpn.featureBias[0] + pipe.ff.POS_NOUN);
+		mw = getCol(mpn.param, mpn.featureBias[0] + pipe.ff.POS_ADJ);
+		dw = getCol(dpn.param, dpn.featureBias[3]);
+		w = Utils.sum(Utils.dot(hcw, mcw, lw, tw, hw, mw, dw));
+		System.out.println("Adp-Noun + left arc + noun + adj: " + w);
+		
+		// Adp-Noun + right arc + adp + noun
+		hcw = getCol(hcpn.param, 0);
+		mcw = getCol(mcpn.param, 0);
+		lw = getCol(lpn.param, 0);
+		tw = getCol(tpn.param, tpn.featureBias[4] + 1);
+		hw = getCol(hpn.param, hpn.featureBias[0] + pipe.ff.POS_ADP);
+		mw = getCol(mpn.param, mpn.featureBias[0] + pipe.ff.POS_NOUN);
+		dw = getCol(dpn.param, dpn.featureBias[3] + 5);
+		w = Utils.sum(Utils.dot(hcw, mcw, lw, tw, hw, mw, dw));
+		System.out.println("Adp-Noun + right arc + adp + noun: " + w);
+   }
+    
+    public double[] getCol(double[][] a, int col) {
+    	double[] ret = new double[a.length];
+    	for (int i = 0; i < ret.length; ++i)
+    		ret[i] = a[i][col];
+    	return ret;
+    }
+    
     /**
 	 * @param args
 	 */
@@ -392,11 +531,13 @@ public class TensorTransfer {
 			parser.options.processArguments(args);
 			parser.options.printOptions(); 
 			
-  			int target = options.targetLang;
-  			System.out.printf(" Evaluation: %s%n", options.langString[target]);
-  			System.out.println(); 
-  			parser.evaluateSet(target, false, false);
-  			parser.evaluateSet(target, false, true);
+			//parser.outputWeight();
+			
+  			//int target = options.targetLang;
+  			//System.out.printf(" Evaluation: %s%n", options.langString[target]);
+  			//System.out.println(); 
+  			//parser.evaluateSet(target, false, false);
+  			//parser.evaluateSet(target, false, true);
 		}
 		
 	}

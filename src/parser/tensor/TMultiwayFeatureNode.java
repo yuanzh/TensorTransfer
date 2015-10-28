@@ -237,42 +237,63 @@ public class TMultiwayFeatureNode extends FeatureNode {
 		// head/mod context
 		int rank = pn.rank;
 		double[] g = new double[rank];
-		g = Utils.dot_s(g, v, lexScore, mcScore, hScore, mScore, ddScore, lScore, tScore);
+		if (options.lexical)
+			g = Utils.dot_s(g, v, lexScore, mcScore, hScore, mScore, ddScore, lScore, tScore);
+		else
+			g = Utils.dot_s(g, v, mcScore, hScore, mScore, ddScore, lScore, tScore);
 		for (int r = 0; r < hcpn.rank; ++r) {
 			hcpn.dFV[r].addEntries(headContextData[h].fv, g[r]);
 		}
 
-		g = Utils.dot_s(g, v, lexScore, hcScore, hScore, mScore, ddScore, lScore, tScore);
+		if (options.lexical)
+			g = Utils.dot_s(g, v, lexScore, hcScore, hScore, mScore, ddScore, lScore, tScore);
+		else
+			g = Utils.dot_s(g, v, hcScore, hScore, mScore, ddScore, lScore, tScore);
 		for (int r = 0; r < mcpn.rank; ++r) {
 			mcpn.dFV[r].addEntries(modContextData[m].fv, g[r]);
 		}
 		
 		// head/mod
-		g = Utils.dot_s(g, v, lexScore, mcScore, hcScore, mScore, ddScore, lScore, tScore);
+		if (options.lexical)
+			g = Utils.dot_s(g, v, lexScore, mcScore, hcScore, mScore, ddScore, lScore, tScore);
+		else
+			g = Utils.dot_s(g, v, mcScore, hcScore, mScore, ddScore, lScore, tScore);
 		for (int r = 0; r < hpn.rank; ++r) {
 			hpn.dFV[r].addEntries(headData[h].fv, g[r]);
 		}
 
-		g = Utils.dot_s(g, v, lexScore, hcScore, hScore, mcScore, ddScore, lScore, tScore);
+		if (options.lexical)
+			g = Utils.dot_s(g, v, lexScore, hcScore, hScore, mcScore, ddScore, lScore, tScore);
+		else
+			g = Utils.dot_s(g, v, hcScore, hScore, mcScore, ddScore, lScore, tScore);
 		for (int r = 0; r < mpn.rank; ++r) {
 			mpn.dFV[r].addEntries(modData[m].fv, g[r]);
 		}
 		
 		// label
-		g = Utils.dot_s(g, v, lexScore, hcScore, mcScore, hScore, mScore, ddScore, tScore);
+		if (options.lexical)
+			g = Utils.dot_s(g, v, lexScore, hcScore, mcScore, hScore, mScore, ddScore, tScore);
+		else
+			g = Utils.dot_s(g, v, hcScore, mcScore, hScore, mScore, ddScore, tScore);
 		for (int r = 0; r < lpn.rank; ++r) {
 			FeatureVector fv = label < 0 ? emptyLabelData.fv : labelData[label].fv;
 			lpn.dFV[r].addEntries(fv, g[r]);
 		}
 		
 		// dd
-		g = Utils.dot_s(g, v, lexScore, hcScore, mcScore, hScore, mScore, lScore, tScore);
+		if (options.lexical)
+			g = Utils.dot_s(g, v, lexScore, hcScore, mcScore, hScore, mScore, lScore, tScore);
+		else
+			g = Utils.dot_s(g, v, hcScore, mcScore, hScore, mScore, lScore, tScore);
 		for (int r = 0; r < dpn.rank; ++r) {
 			dpn.dFV[r].addEntries(ddData[binDist].fv, g[r]);
 		}
 		
 		// typo
-		g = Utils.dot_s(g, v, lexScore, hcScore, mcScore, hScore, mScore, lScore, ddScore);
+		if (options.lexical)
+			g = Utils.dot_s(g, v, lexScore, hcScore, mcScore, hScore, mScore, lScore, ddScore);
+		else
+			g = Utils.dot_s(g, v, hcScore, mcScore, hScore, mScore, lScore, ddScore);
 		for (int r = 0; r < tpn.rank; ++r) {
 			tpn.dFV[r].addEntries(tfv, g[r]);
 		}

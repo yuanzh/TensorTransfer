@@ -27,7 +27,7 @@ public class WordVector {
 	}
 	
 	public String constructFileName(int l) {
-		return options.dataDir + "/universal_treebanks_v2.0/" + langString[l] + "-small5-embedding.100";
+		return options.dataDir + "/universal_treebanks_v2.0/" + langString[l] + "-small5-embedding";
 		//return options.dataDir + "/universal_treebanks_v2.0/" + langString[l] + "-en-embedding3";
 	}
 	

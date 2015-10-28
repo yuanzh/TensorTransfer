@@ -56,7 +56,8 @@ public class DependencyPipe implements Serializable {
 	
 	public String constructTrainFileName(int l) {
 		if (options.dataset == Dataset.CoNLL_UNI) {
-			return options.dataDir + "/universal_treebanks_v2.0/std/" + options.langString[l] + "/" + options.langString[l] + options.trainExt;
+			//return options.dataDir + "/universal_treebanks_v2.0/std/" + options.langString[l] + "/" + options.langString[l] + options.trainExt;
+			return options.dataDir + "/universal-dependencies-1.0/" + options.langString[l] + "/" + options.langString[l] + "-ud-train.conllu";
 		}
 		else {
 			Utils.ThrowException("not implemented yet");
@@ -66,7 +67,8 @@ public class DependencyPipe implements Serializable {
 	
 	public String constructTestFileName(int l) {
 		if (options.dataset == Dataset.CoNLL_UNI) {
-			return options.dataDir + "/universal_treebanks_v2.0/std/" + options.langString[l] + "/" + options.langString[l] + options.testExt;
+			//return options.dataDir + "/universal_treebanks_v2.0/std/" + options.langString[l] + "/" + options.langString[l] + options.testExt;
+			return options.dataDir + "/universal-dependencies-1.0/" + options.langString[l] + "/" + options.langString[l] + "-ud-test.conllu";
 		}
 		else {
 			Utils.ThrowException("not implemented yet");
@@ -76,7 +78,8 @@ public class DependencyPipe implements Serializable {
 	
 	public String constructDevFileName(int l) {
 		if (options.dataset == Dataset.CoNLL_UNI) {
-			return options.dataDir + "/universal_treebanks_v2.0/std/" + options.langString[l] + "/" + options.langString[l] + options.devExt;
+			//return options.dataDir + "/universal_treebanks_v2.0/std/" + options.langString[l] + "/" + options.langString[l] + options.devExt;
+			return options.dataDir + "/universal-dependencies-1.0/" + options.langString[l] + "/" + options.langString[l] + "-ud-dev.conllu";
 		}
 		else {
 			Utils.ThrowException("not implemented yet");
@@ -299,13 +302,14 @@ public class DependencyPipe implements Serializable {
         }
         System.out.println("Done.");
 		
-        //Distribution dist = new Distribution(lt, this, options);
-		//DependencyInstance[] insts = shuffle(lt, dist);
+        Distribution dist = new Distribution(lt, this, options);
+		DependencyInstance[] insts = shuffle(lt, dist);
         //DependencyInstance[] insts = greedyShuffle(lt, dist);
         //DependencyInstance[] tmpinsts = lengthShuffle(lt, dist);
-        DependencyInstance[] tmpinsts = greedyShuffle2(lt);
+        //DependencyInstance[] tmpinsts = greedyShuffle2(lt);
+        //DependencyInstance[] tmpinsts = firstKSupToken(lt);
         
-        DependencyInstance[] insts = dupAndRandom(tmpinsts);
+        //DependencyInstance[] insts = dupAndRandom(tmpinsts);
         //DependencyInstance[] insts = removeUnsup(tmpinsts);
         //DependencyInstance[] insts = new DependencyInstance[options.supSent];
         //for (int i = 0; i < options.supSent; ++i)
@@ -354,6 +358,61 @@ public class DependencyPipe implements Serializable {
     	return ret;
     }
     
+    public DependencyInstance[] firstKSupToken(ArrayList<DependencyInstance> lt) {
+    	int size = lt.size();
+    	int totalToken = options.supSent;
+    	int supToken = 0;
+    	int supNum = 0;
+    	Utils.Assert(totalToken > 0);
+    	for (int i = 0; i < size && supToken < totalToken; ++i) {
+    		if (lt.get(i).lang == options.targetLang) {
+    			supNum++;
+    			supToken += lt.get(i).length - 1;
+    		}
+    	}
+    	options.supSent = supNum;
+    	
+    	int supTotalNum = 0;
+    	for (int i = 0; i < size; ++i) {
+    		if (lt.get(i).lang == options.targetLang) {
+    			supTotalNum++;
+    		}
+    	}
+    	
+    	System.out.println("sup total sent: " + supTotalNum);
+    	System.out.println("sup token and sent: " + supToken + " " + supNum);
+    	
+    	int n = options.maxNumSent == -1 ? lt.size() - supTotalNum + options.supSent : Math.min(options.maxNumSent, lt.size() - supTotalNum + options.supSent);
+    	boolean[] used = new boolean[size];
+    	DependencyInstance[] ret = new DependencyInstance[n];
+    	
+    	// get supervised data
+    	supToken = 0;
+    	supNum = 0;
+    	for (int i = 0; i < size && supToken < totalToken; ++i) {
+    		if (lt.get(i).lang == options.targetLang) {
+    			ret[supNum] = lt.get(i);
+    			supToken += lt.get(i).length - 1;
+    			supNum++;
+    		}
+    	}
+    	Utils.Assert(supNum == options.supSent);
+    	
+    	//get unsupervised data
+    	Random r = new Random(0);
+    	int id = 0;
+    	for (int i = options.supSent; i < n; ++i) {
+    		id = (id + r.nextInt(size)) % size;
+    		while (used[id] || lt.get(id).lang == options.targetLang) {
+    			id = (id + 1) % size;
+    		}
+    		used[id] = true;
+    		ret[i] = lt.get(id);
+    	}
+    
+    	return ret;
+    }
+	
     public DependencyInstance[] greedyShuffle(ArrayList<DependencyInstance> lt, Distribution dist) {
     	int size = lt.size();
     	int supNum = 0;

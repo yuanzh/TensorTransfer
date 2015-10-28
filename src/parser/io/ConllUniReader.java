@@ -20,7 +20,12 @@ public class ConllUniReader extends DependencyReader {
 
 	    String line = reader.readLine();
 	    while (line != null && !line.equals("") && !line.startsWith("*")) {
-	    	lstLines.add(line.split("\t"));
+	    	if (!line.startsWith("#")) {
+	    		String[] data = line.split("\t");
+	    		if (!data[0].contains("-")) {
+	    			lstLines.add(data);
+	    		}
+	    	}
 	    	line = reader.readLine();
 	    }
 	    

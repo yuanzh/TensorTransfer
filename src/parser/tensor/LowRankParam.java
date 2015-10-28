@@ -385,8 +385,8 @@ public class LowRankParam {
 			double[] h = new double[hpn.featureSize], m = new double[mpn.featureSize], dd = new double[dpn.featureSize];
 			double[] hc = new double[hcpn.featureSize], mc = new double[mcpn.featureSize];
 			double[] l = options.learnLabel ? new double[lpn.featureSize] : null;
-			//double[] svo = options.learnLabel ? new double[apn.featureSize] : null;
-			//double[] t = new double[tpn.featureSize];
+			double[] svo = options.learnLabel ? new double[apn.featureSize] : null;
+			double[] t = new double[tpn.featureSize];
 			double[][] hl = options.lexical ? new double[rank2][hlpn.featureSize] : null;
 			double[][] ml = options.lexical ? new double[rank2][mlpn.featureSize] : null;
 			
@@ -415,23 +415,23 @@ public class LowRankParam {
 			for (int j = 0; j < dpn.featureSize; ++j)
 				if (dpn.isActive[j])
 					dd[j] = rnd.nextDouble() - 0.5;
-//			for (int j = 0; j < tpn.featureSize; ++j)
-//				if (tpn.isActive[j])
-//					t[j] = rnd.nextDouble() - 0.5;
+			for (int j = 0; j < tpn.featureSize; ++j)
+				if (tpn.isActive[j])
+					t[j] = rnd.nextDouble() - 0.5;
 			Utils.normalize(h, normh);
 			Utils.normalize(m, normh);
 			Utils.normalize(hc);
 			Utils.normalize(mc);
 			Utils.normalize(dd, normh);
-//			Utils.normalize(t, normt);
+			Utils.normalize(t, normt);
 			if (options.learnLabel) {
-//				for (int j = 0; j < apn.featureSize; ++j)
-//					if (apn.isActive[j])
-//						svo[j] = rnd.nextDouble() - 0.5;
+				for (int j = 0; j < apn.featureSize; ++j)
+					if (apn.isActive[j])
+						svo[j] = rnd.nextDouble() - 0.5;
 				for (int j = 0; j < lpn.featureSize; ++j)
 					if (lpn.isActive[j])
 						l[j] = rnd.nextDouble() - 0.5;
-//				Utils.normalize(svo, norma);
+				Utils.normalize(svo, norma);
 				Utils.normalize(l, norml);
 			}
 			
@@ -466,15 +466,15 @@ public class LowRankParam {
 							Utils.Assert(e.svo < 0);
 							e.delexScore = e.value * m[e.m] * h[e.h] * hc[e.hc] * mc[e.mc] * dd[e.dd] * (e.label >= 0 ? l[e.label] : 1.0);
 						}
-//						else if (e.t >= 0) {
-//							Utils.Assert(e.svo < 0);
-//							e.delexScore = e.value * hc[e.hc] * mc[e.mc] * t[e.t] * (e.label >= 0 ? l[e.label] : 1.0);
-//						}
-//						else if (e.svo >= 0) {
-//							Utils.Assert(e.t < 0);
-//							Utils.Assert(e.label < 0);
-//							e.delexScore = e.value * hc[e.hc] * mc[e.mc] * svo[e.svo];
-//						}
+						else if (e.t >= 0) {
+							Utils.Assert(e.svo < 0);
+							e.delexScore = e.value * hc[e.hc] * mc[e.mc] * t[e.t] * (e.label >= 0 ? l[e.label] : 1.0);
+						}
+						else if (e.svo >= 0) {
+							Utils.Assert(e.t < 0);
+							Utils.Assert(e.label < 0);
+							e.delexScore = e.value * hc[e.hc] * mc[e.mc] * svo[e.svo];
+						}
 					}
 					
 					double[] delexSum = new double[i];
@@ -482,10 +482,10 @@ public class LowRankParam {
 						delexSum[j] = ((Utils.dotsum(m, mpn.param[j]) 
 								   * Utils.dotsum(h, hpn.param[j])
 								   * Utils.dotsum(dd, dpn.param[j])
-//								   + Utils.dotsum(t, tpn.param[j])
+								   + Utils.dotsum(t, tpn.param[j])
 									)
 								   * (lpn != null ? Utils.dotsum(l, lpn.param[j]) : 1.0)
-//								   + (apn != null ? Utils.dotsum(svo, apn.param[j]) : 0.0)
+								   + (apn != null ? Utils.dotsum(svo, apn.param[j]) : 0.0)
 								   )
 								   * Utils.dotsum(mc, mcpn.param[j])
 								   * Utils.dotsum(hc, hcpn.param[j]);
@@ -615,48 +615,48 @@ public class LowRankParam {
 				}
 				Utils.normalize(dd, normh);
 				
-//				for (int j = 0; j < tpn.featureSize; ++j)
-//					t[j] = 0;
-//				for (MatrixEntry ee : list) {
-//					HierarchicalEntry e = (HierarchicalEntry)ee;
-//					if (e.t >= 0) {
-//						Utils.Assert(e.svo < 0);
-//						Utils.Assert(e.h < 0);
-//						t[e.t] += e.value * e.lexScore * hc[e.hc] * mc[e.mc] * (e.label >= 0 ? l[e.label] : 1.0);
-//					}
-//				}
-//				for (int j = 0; j < i; ++j) {
-//					double dot = lexSum[j]
-//							   * Utils.dotsum(hc, hcpn.param[j])
-//							   * Utils.dotsum(mc, mcpn.param[j])
-//							   * (lpn != null ? Utils.dotsum(l, lpn.param[j]) : 1.0);
-//					for (int k = 0; k < tpn.featureSize; ++k)
-//						t[k] -= dot * tpn.param[j][k];
-//				}
-//				Utils.normalize(t, normt);
-				
+				for (int j = 0; j < tpn.featureSize; ++j)
+					t[j] = 0;
+				for (MatrixEntry ee : list) {
+					HierarchicalEntry e = (HierarchicalEntry)ee;
+					if (e.t >= 0) {
+						Utils.Assert(e.svo < 0);
+						Utils.Assert(e.h < 0);
+						t[e.t] += e.value * e.lexScore * hc[e.hc] * mc[e.mc] * (e.label >= 0 ? l[e.label] : 1.0);
+					}
+				}
+				for (int j = 0; j < i; ++j) {
+					double dot = lexSum[j]
+							   * Utils.dotsum(hc, hcpn.param[j])
+							   * Utils.dotsum(mc, mcpn.param[j])
+							   * (lpn != null ? Utils.dotsum(l, lpn.param[j]) : 1.0);
+					for (int k = 0; k < tpn.featureSize; ++k)
+						t[k] -= dot * tpn.param[j][k];
+				}
+				Utils.normalize(t, normt);
+			
 				if (options.learnLabel) {
 					
-//					for (int j = 0; j < apn.featureSize; ++j)
-//						svo[j] = 0;
-//					for (MatrixEntry ee : list) {
-//						HierarchicalEntry e = (HierarchicalEntry)ee;
-//						if (e.svo >= 0) {
-//							//System.out.println("bbb: " + e.value + " " + hc[e.hc] + " " + mc[e.mc]);
-//							Utils.Assert(e.h < 0);
-//							Utils.Assert(e.t < 0);
-//							Utils.Assert(e.label < 0);
-//							svo[e.svo] += e.value * e.lexScore * hc[e.hc] * mc[e.mc];
-//						}
-//					}
-//					for (int j = 0; j < i; ++j) {
-//						double dot = lexSum[j] 
-//								   * Utils.dotsum(hc, hcpn.param[j])
-//								   * Utils.dotsum(mc, mcpn.param[j]);
-//						for (int k = 0; k < apn.featureSize; ++k)
-//							svo[k] -= dot * apn.param[j][k];
-//					}
-//					Utils.normalize(svo, norma);
+					for (int j = 0; j < apn.featureSize; ++j)
+						svo[j] = 0;
+					for (MatrixEntry ee : list) {
+						HierarchicalEntry e = (HierarchicalEntry)ee;
+						if (e.svo >= 0) {
+							//System.out.println("bbb: " + e.value + " " + hc[e.hc] + " " + mc[e.mc]);
+							Utils.Assert(e.h < 0);
+							Utils.Assert(e.t < 0);
+							Utils.Assert(e.label < 0);
+							svo[e.svo] += e.value * e.lexScore * hc[e.hc] * mc[e.mc];
+						}
+					}
+					for (int j = 0; j < i; ++j) {
+						double dot = lexSum[j] 
+								   * Utils.dotsum(hc, hcpn.param[j])
+								   * Utils.dotsum(mc, mcpn.param[j]);
+						for (int k = 0; k < apn.featureSize; ++k)
+							svo[k] -= dot * apn.param[j][k];
+					}
+					Utils.normalize(svo, norma);
 
 					for (int j = 0; j < lpn.featureSize; ++j)
 						l[j] = 0;
@@ -668,9 +668,9 @@ public class LowRankParam {
 								Utils.Assert(e.t < 0);
 								l[e.label] += e.value * e.lexScore * h[e.h] * m[e.m] * hc[e.hc] * mc[e.mc] * dd[e.dd];
 							}
-//							else if (e.t >= 0) {
-//								l[e.label] += e.value * e.lexScore * hc[e.hc] * mc[e.mc] * t[e.t];
-//							}
+							else if (e.t >= 0) {
+								l[e.label] += e.value * e.lexScore * hc[e.hc] * mc[e.mc] * t[e.t];
+							}
 							else {
 								System.out.println("Warning 3: " + e.h + " " + e.m + " " + e.dd + " " + e.hc + " " + e.mc + " " + e.t + " " + e.svo + " " + e.label);
 								Utils.ThrowException("aaa");
@@ -682,7 +682,7 @@ public class LowRankParam {
 								   * (Utils.dotsum(h, hpn.param[j]) 
 								   * Utils.dotsum(m, mpn.param[j])
 								   * Utils.dotsum(dd, dpn.param[j])
-//								   + Utils.dotsum(t, tpn.param[j])
+								   + Utils.dotsum(t, tpn.param[j])
 								   )
 								   * Utils.dotsum(hc, hcpn.param[j])
 								   * Utils.dotsum(mc, mcpn.param[j]);
@@ -703,15 +703,15 @@ public class LowRankParam {
 						Utils.Assert(e.svo < 0);
 						hc[e.hc] += e.value * e.lexScore * m[e.m] * h[e.h] * mc[e.mc] * dd[e.dd] * (e.label >= 0 ? l[e.label] : 1.0);
 					}
-//					else if (e.t >= 0) {
-//						Utils.Assert(e.svo < 0);
-//						hc[e.hc] += e.value * e.lexScore * mc[e.mc] * t[e.t] * (e.label >= 0 ? l[e.label] : 1.0);
-//					}
-//					else if (e.svo >= 0) {
-//						Utils.Assert(e.t < 0);
-//						Utils.Assert(e.label < 0);
-//						hc[e.hc] += e.value * e.lexScore * mc[e.mc] * svo[e.svo];
-//					}
+					else if (e.t >= 0) {
+						Utils.Assert(e.svo < 0);
+						hc[e.hc] += e.value * e.lexScore * mc[e.mc] * t[e.t] * (e.label >= 0 ? l[e.label] : 1.0);
+					}
+					else if (e.svo >= 0) {
+						Utils.Assert(e.t < 0);
+						Utils.Assert(e.label < 0);
+						hc[e.hc] += e.value * e.lexScore * mc[e.mc] * svo[e.svo];
+					}
 					else {
 						System.out.println("Warning 1");
 					}
@@ -724,10 +724,10 @@ public class LowRankParam {
 							   * ((Utils.dotsum(m, mpn.param[j]) 
 							   * Utils.dotsum(h, hpn.param[j])
 							   * Utils.dotsum(dd, dpn.param[j])
-//							   + Utils.dotsum(t, tpn.param[j])
+							   + Utils.dotsum(t, tpn.param[j])
 								)
 							   * (lpn != null ? Utils.dotsum(l, lpn.param[j]) : 1.0)
-//							   + (apn != null ? Utils.dotsum(svo, apn.param[j]) : 0.0)
+							   + (apn != null ? Utils.dotsum(svo, apn.param[j]) : 0.0)
 							   )
 							   * Utils.dotsum(mc, mcpn.param[j]);
 					for (int k = 0; k < hcpn.featureSize; ++k)
@@ -744,15 +744,15 @@ public class LowRankParam {
 						Utils.Assert(e.svo < 0);
 						mc[e.mc] += e.value * e.lexScore * h[e.h] * hc[e.hc] * m[e.m] * dd[e.dd] * (e.label >= 0 ? l[e.label] : 1.0);
 					}
-//					else if (e.t >= 0) {
-//						Utils.Assert(e.svo < 0);
-//						mc[e.mc] += e.value * e.lexScore * hc[e.hc] * t[e.t] * (e.label >= 0 ? l[e.label] : 1.0);
-//					}
-//					else if (e.svo >= 0) {
-//						Utils.Assert(e.t < 0);
-//						Utils.Assert(e.label < 0);
-//						mc[e.mc] += e.value * e.lexScore * hc[e.hc] * svo[e.svo];
-//					}
+					else if (e.t >= 0) {
+						Utils.Assert(e.svo < 0);
+						mc[e.mc] += e.value * e.lexScore * hc[e.hc] * t[e.t] * (e.label >= 0 ? l[e.label] : 1.0);
+					}
+					else if (e.svo >= 0) {
+						Utils.Assert(e.t < 0);
+						Utils.Assert(e.label < 0);
+						mc[e.mc] += e.value * e.lexScore * hc[e.hc] * svo[e.svo];
+					}
 					else {
 						System.out.println("Warning 2");
 					}
@@ -762,10 +762,10 @@ public class LowRankParam {
 							   * ((Utils.dotsum(m, mpn.param[j]) 
 							   * Utils.dotsum(h, hpn.param[j])
 							   * Utils.dotsum(dd, dpn.param[j])
-//							   + Utils.dotsum(t, tpn.param[j])
+							   + Utils.dotsum(t, tpn.param[j])
 								)
 							   * (lpn != null ? Utils.dotsum(l, lpn.param[j]) : 1.0)
-//							   + (apn != null ? Utils.dotsum(svo, apn.param[j]) : 0.0)
+							   + (apn != null ? Utils.dotsum(svo, apn.param[j]) : 0.0)
 							   )
 							   * Utils.dotsum(hc, hcpn.param[j]);
 					for (int k = 0; k < mcpn.featureSize; ++k)
@@ -773,8 +773,8 @@ public class LowRankParam {
 				}
 				//Utils.normalize(mc);
 
-//				svoNorm = Math.sqrt(Utils.squaredSum(svo));
-//				typoNorm = Math.sqrt(Utils.squaredSum(t));
+				svoNorm = Math.sqrt(Utils.squaredSum(svo));
+				typoNorm = Math.sqrt(Utils.squaredSum(t));
 				multiNorm = Math.sqrt(Utils.squaredSum(mc));
 				if (lastSVONorm != Double.POSITIVE_INFINITY && Math.abs(svoNorm-lastSVONorm) < eps
 					&& lastTypoNorm != Double.POSITIVE_INFINITY && Math.abs(typoNorm-lastTypoNorm) < eps
@@ -808,10 +808,10 @@ public class LowRankParam {
 			hcpn.param[i] = hc;
 			mcpn.param[i] = mc;
 			dpn.param[i] = dd;
-//			tpn.param[i] = t;
+			tpn.param[i] = t;
 			if (options.learnLabel) {
 				lpn.param[i] = l;
-//				apn.param[i] = svo;
+				apn.param[i] = svo;
 			}
 			if (options.lexical) {
 				int st = i * rank2;
@@ -829,10 +829,10 @@ public class LowRankParam {
 				hcpn.total[i] = hcpn.param[i].clone();
 				mcpn.total[i] = mcpn.param[i].clone();
 				dpn.total[i] = dpn.param[i].clone();
-//				tpn.total[i] = tpn.param[i].clone();
+				tpn.total[i] = tpn.param[i].clone();
 				if (options.learnLabel) {
 					lpn.total[i] = lpn.param[i].clone();
-//					apn.total[i] = apn.param[i].clone();
+					apn.total[i] = apn.param[i].clone();
 				}
 				if (options.lexical) {
 					int st = i * rank2;

@@ -127,6 +127,7 @@ public class Options implements Cloneable, Serializable {
 			"ko", "pt-br", "es", "sv"};
 	public String sub2LangString[] = {"en", "fr", "de", "id", "it", 
 			"pt-br", "es", "sv"};
+	public String ud1LangString[] = {"cs", "de", "en", "es", "fi", "fr", "ga", "hu", "it", "sv"};
 
 	public String euroLangString[] = {"en", "fr", "de", "it", "pt-br", "es", "sv"};
 	
@@ -299,6 +300,7 @@ public class Options implements Cloneable, Serializable {
     			break;
     	}
     	
+    	langString = ud1LangString;
     	if (typoFile.contains("euro"))
     		langString = euroLangString;
     	else if (typoFile.contains("sub1"))
